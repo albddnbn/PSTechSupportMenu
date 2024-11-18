@@ -1,0 +1,75 @@
+{
+    "categories": {
+        "files": [
+            "Copy-RemoteFiles",
+            "Copy-CannedResponse",
+            "Copy-SnippetToClipboard",
+            "Send-Files"
+        ],
+        "installs & updates": [
+            "Apply-DellCommandUpdates",
+            "Install-ActiveDirectoryModule",
+            "Install-Application",
+            "Install-NewTeams",
+            "Install-SMARTNotebookSoftware",
+            "Install-VeyonRoom",
+            "Remove-TeamsClassic"
+        ],
+        "intune": [
+            "Get-IntuneHardwareIDs",
+            "New-IntuneWin32App"
+        ],
+        "network": [
+            "Ping-TestReport",
+            "Test-ConnectivityQuick",
+            "Open-RDP"
+        ],
+        "policies": [
+            "Set-ChromeClearDataOnExit"
+        ],
+        "printers": [
+            "Add-PrinterLogicPrinter",
+            "New-PrinterConnectionExe",
+            "Get-ConnectedPrinters"
+        ],
+        "scans": [
+            "Get-AssetInformation",
+            "Get-ComputerDetails",
+            "Get-CurrentUser",
+            "Get-InstalledDotNetVersions",
+            "Get-InventoryDetails",
+            "Scan-ForAppOrFilePath",
+            "Scan-Inventory",
+            "Scan-SoftwareInventory"
+        ],
+        "users": [
+            "Clear-CorruptProfiles",
+            "Clear-FirefoxProfile",
+            "Count-TempProfiles",
+            "Get-CurrentUser",
+            "Send-Reboots"
+        ],
+        "utilities": [
+            "Convert-ImgToBitmap",
+            "Convert-PNGtoICO",
+            "New-CannedResponse",
+            "New-DriveMappingExe",
+            "New-PSADTFolder",
+            "Open-Guide",
+            "Stop-WifiAdapters"
+        ]
+    },
+    "notjobfunctions": [
+        "Copy-CannedResponse",
+        "New-CannedResponse",
+        "Copy-SnippetToClipboard",
+        "Scan-Inventory",
+        "Install-VeyonRoom",
+        "New-DriveMappingExe",
+        "Send-Reboots",
+        "Apply-DellCommandUpdates",
+        "Open-RDP",
+        "Add-PrinterLogicPrinter",
+        "New-PrinterConnectionExe"
+    ]
+}

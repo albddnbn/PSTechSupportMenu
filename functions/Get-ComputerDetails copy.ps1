@@ -58,44 +58,13 @@ function Get-ComputerDetails {
         Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected 'N' input for outputfile, skipping creation of outputfile."
     }
     else {
-        if ((Get-Command -Name "Get-OutputFileString" -ErrorAction SilentlyContinue) -and ($null -ne $env:PSMENU_DIR)) {
-            if ($Outputfile.toLower() -eq '') {
-                $REPORT_DIRECTORY = "$str_title_var"
-            }
-            else {
-                $REPORT_DIRECTORY = $outputfile            
-            }
-            $OutputFile = Get-OutputFileString -TitleString $REPORT_DIRECTORY -Rootdirectory $env:PSMENU_DIR -FolderTitle $REPORT_DIRECTORY -ReportOutput
+        if ($Outputfile.toLower() -eq '') {
+            $REPORT_DIRECTORY = "$str_title_var"
         }
         else {
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Function was not run as part of Terminal Menu - does not have utility functions." -Foregroundcolor Yellow
-            if ($outputfile.tolower() -eq '') {
-                $iterator_var = 0
-                while ($true) {
-                    $outputfile = "reports\$thedate\$REPORT_DIRECTORY\$str_title_var-$thedate"
-                    if ((Test-Path "$outputfile.csv") -or (Test-Path "$outputfile.xlsx")) {
-                        $iterator_var++
-                        $outputfile += "$([string]$iterator_var)"
-                    }
-                    else {
-                        break
-                    }
-                }
-
-
-            }
-            try {
-                $outputdir = $outputfile | split-path -parent
-                if (-not (Test-Path $outputdir -ErrorAction SilentlyContinue)) {
-                    New-Item -ItemType Directory -Path $($outputfile | split-path -parent) -Force | Out-Null
-                }
-            }
-            catch {
-                Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: $Outputfile has no parent directory." -Foregroundcolor Yellow
-            }
-
-
+            $REPORT_DIRECTORY = $outputfile            
         }
+        $OutputFile = Get-OutputFileString -TitleString $REPORT_DIRECTORY -Rootdirectory $env:USERPROFILE\PSTechSupportMenu -FolderTitle $REPORT_DIRECTORY -ReportOutput
     }
 
 

@@ -41,19 +41,19 @@ $CONFIG_FILENAME = "config.json"
 Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: " -nonewline
 Write-Host "Loading $CONFIG_FILENAME.." -ForegroundColor Yellow
 
-## $env:SUPPORTFILES_DIR --> Directory of supportfiles folder, which contains config.json
+## $env:RESOURCES --> Directory of supportfiles folder, which contains config.json
 ## ./SupportFiles            Also contains other files used by the menu, including the PS2exe, 
 ##                           PSMenu, ImportExcel, and other Powershell modules.
 Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Setting " -nonewline
-Write-Host "`$env:SUPPORTFILES_DIR" -foregroundcolor green -NoNewline
-Write-Host " environment variable to $((Get-Item './supportfiles').FullName)."
-$env:SUPPORTFILES_DIR = (Get-Item './supportfiles').FullName
+Write-Host "`$env:RESOURCES" -foregroundcolor green -NoNewline
+Write-Host " environment variable to $((Get-Item './resources').FullName)."
+$env:RESOURCES = (Get-Item './resources').FullName
 
 # SupportFiles env var is necessary to actually 'grab' the config.json file
-$config_file = Get-Content -Path "$env:SUPPORTFILES_DIR\$CONFIG_FILENAME" -ErrorAction SilentlyContinue
+$config_file = Get-Content -Path "config\config.ps1" -ErrorAction SilentlyContinue
 if (-not $config_file) {
     Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: " -nonewline
-    Write-Host "Couldn't find $CONFIG_FILENAME in $env:SUPPORTFILES_DIR, exiting." -foregroundcolor red
+    Write-Host "Couldn't find $CONFIG_FILENAME in ./config, exiting." -foregroundcolor red
     exit
 }
 $config_file = $config_file | ConvertFrom-Json
@@ -67,15 +67,24 @@ $env:PSMENU_DIR = (Get-Item .).FullName
 ## $env:MENU_UTILS --> Directory of utils folder, which contains scripts used by functions.
 Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Setting " -NoNewline
 Write-Host "`$env:MENU_UTILS" -foregroundcolor green -NoNewline
-Write-Host " environment variable to $((Get-Item .\utils).FullName)."
-$env:MENU_UTILS = (Get-Item .\utils).FullName
+Write-Host " environment variable to $((Get-Item .\utilities).FullName)."
+$env:MENU_UTILS = (Get-Item .\utilities).FullName
 
 ## $env:LOCAL_SCRIPTS --> Directory of scripts that are to be run locally (many of the functions in the menu use 
 ## Invoke-Command to execute these scripts on local computer, or remote targets).
 Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Setting " -NoNewline
 Write-Host "`$env:LOCAL_SCRIPTS" -foregroundcolor green -NoNewline
-Write-Host " environment variable to $((Get-Item .\localscripts).FullName)."
-$env:LOCAL_SCRIPTS = (Get-Item .\localscripts).FullName
+Write-Host " environment variable to $((Get-Item .\scripts).FullName)."
+$env:LOCAL_SCRIPTS = (Get-Item .\scripts).FullName
+
+## Create the user-specific REPORTS directory
+if (-not (Test-Path "$env:USERPROFILE\PSTechSupportMenu\reports")) {
+    New-Item -Path "$env:USERPROFILE\PSTechSupportMenu\reports" -Force -ItemType Directory
+}
+
+$env:REPORTS_DIRECTORY = "$env:USERPROFILE\PSTechSupportMenu\reports"
+
+## Create user-specific inventory/canned_responses directories
 
 $functions = @{}
 # Keys = Category Names
@@ -276,7 +285,7 @@ while ($exit_program -eq $false) {
                     $env:PSMENU_DIR = $args[0];
                     $env:MENU_UTILS = "$($args[0])\utils";
                     $env:LOCAL_SCRIPTS = "$($args[0])\localscripts";
-                    $env:SUPPORTFILES_DIR = "$($args[0])\supportfiles";
+                    $env:RESOURCES = "$($args[0])\supportfiles";
 
                     ## dot source the utility functions, etc.
                     ForEach ($utility_function in (Get-ChildItem -Path "$env:MENU_UTILS" -Filter '*.ps1' -File)) {

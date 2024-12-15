@@ -51,10 +51,11 @@ function PSTechSupportMenu {
     $env:RESOURCES = (Get-Item "$PSSCRIPTROOT\resources").FullName
 
     # SupportFiles env var is necessary to actually 'grab' the config.json file
-    $config_file = Get-Content -Path "$PSSCRIPTROOT\config\config.ps1" -ErrorAction SilentlyContinue
+    $config_file = Get-Content -Path "$PSSCRIPTROOT\config\config.json" -ErrorAction SilentlyContinue
     if (-not $config_file) {
         Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: " -nonewline
         Write-Host "Couldn't find $CONFIG_FILENAME in $PSSCRIPTROOT\config, exiting." -foregroundcolor red
+        read-host "couldn't fgind config"
         exit
     }
     $config_file = $config_file | ConvertFrom-Json
@@ -219,56 +220,58 @@ function PSTechSupportMenu {
                 ## TARGETCOMPUTER IS HANDLED HERE if menu is being used - otherwise functions should be able to handle 
                 ## TargetComputer in their own way.
                 ## If the parameter is TargetComputer - have user enter value, run through get-targetcomputers now.
-                if ($parameter -eq 'TargetComputer') {
-                    Write-Host "Please input value for TargetComputer." -foregroundcolor yellow
-                    Write-Host "Input can be:"
-                    Write-Host "    1. Single hostname string, ex: 's-client-01'"
-                    Write-Host "    2. Comma-separated list of hostnames, ex: s-client-01, s-client-02"
-                    Write-Host "    3. Path to text file containing one hostname per line, ex:" -NoNewline
-                    Write-Host " 'D:\computers.txt'" -Foregroundcolor Yellow
-                    Write-Host "    4. First section of a hostname to generate a list, ex: " -nonewline
-                    Write-Host "s-client-" -nonewline -foregroundcolor Yellow
-                    Write-Host " will create a list of all hostnames that start with s-client-."
-                    $target_computers = read-host "Enter target computer value"
-                    $target_computers = Get-Targets -TargetComputer $target_computers | sort
-                    #$target_computers = [String[]]$target_computers
+                # if ($parameter -eq 'TargetComputer') {
+                #     Write-Host "Please input value for TargetComputer." -foregroundcolor yellow
+                #     Write-Host "Input can be:"
+                #     Write-Host "    1. Single hostname string, ex: 's-client-01'"
+                #     Write-Host "    2. Comma-separated list of hostnames, ex: s-client-01, s-client-02"
+                #     Write-Host "    3. Path to text file containing one hostname per line, ex:" -NoNewline
+                #     Write-Host " 'D:\computers.txt'" -Foregroundcolor Yellow
+                #     Write-Host "    4. First section of a hostname to generate a list, ex: " -nonewline
+                #     Write-Host "s-client-" -nonewline -foregroundcolor Yellow
+                #     Write-Host " will create a list of all hostnames that start with s-client-."
+                #     $target_computers = read-host "Enter target computer value"
+                #     $target_computers = Get-Targets -TargetComputer $target_computers | sort
+                #     #$target_computers = [String[]]$target_computers
+                # }
+                # else {
+                $current_parameter_info = $functionhelper.parameters.parameter | Where-Object { $_.name -eq $parameter }
+                # For each line in that text block (underneath .PARAMETER parameterName)
+                Write-Host "`nParameter $parameter DESCRIPTION: `n" -NoNewLine -Foregroundcolor Yellow
+                ForEach ($textitem in $current_parameter_info.description) {
+                    # Write each line to terminal.
+                    $textitem.text
                 }
-                else {
-                    $current_parameter_info = $functionhelper.parameters.parameter | Where-Object { $_.name -eq $parameter }
-                    # For each line in that text block (underneath .PARAMETER parameterName)
-                    Write-Host "`nParameter $parameter DESCRIPTION: `n" -NoNewLine -Foregroundcolor Yellow
-                    ForEach ($textitem in $current_parameter_info.description) {
-                        # Write each line to terminal.
-                        $textitem.text
-                    }
-                    Write-Host "`n"
-                    ## if its the install-application command and its the appname parameter:
-                    if (($function_selection -eq 'Install-Application') -and ($parameter -eq 'AppName')) {
-                        ## get listing of deploy/applications folders? - have to clean this up / get it working
-                        # Write-Host "$((Get-ChildItem -Path "$env:PSMENU_DIR\deploy\applications" -Directory -ErrorAction SilentlyContinue).Name)"
-                        Write-Host "Available applications: " -Foregroundcolor Green
+                Write-Host "`n"
+                ## if its the install-application command and its the appname parameter:
+                if (($function_selection -eq 'Install-Application') -and ($parameter -eq 'AppName')) {
+                    ## get listing of deploy/applications folders? - have to clean this up / get it working
+                    # Write-Host "$((Get-ChildItem -Path "$env:PSMENU_DIR\deploy\applications" -Directory -ErrorAction SilentlyContinue).Name)"
+                    Write-Host "Available applications: " -Foregroundcolor Green
                     (Get-ChildItem -Path "$env:PSMENU_DIR\deploy\applications" -Directory -ErrorAction SilentlyContinue).Name
-                        Write-Host "`n"
-                    }
-
-                    # Read-HostNoColon is just Read-Host without the colon at the end, so that an = can be used.
-                    $value = Read-HostNoColon -Prompt "$parameter = "
-
-                    # adds whatever value user input to the hashtable containing parameter names and values.
-                    $splat.Add($parameter, $value)
+                    Write-Host "`n"
                 }
+
+                # Read-HostNoColon is just Read-Host without the colon at the end, so that an = can be used.
+                $value = Read-HostNoColon -Prompt "$parameter = "
+
+                # adds whatever value user input to the hashtable containing parameter names and values.
+                $splat.Add($parameter, $value)
+                # }
 
             }
+            Write-Host "Splat keys: $($splat.keys)"
+            Write-Host "Current splat is: $($splat.values)"
 
             ## if output file = 'n' or its in notjobfunctions - run the function without a job
             if (($function_selection -in $notjobfunctions) -or ($splat.ContainsKey('OutputFile') -and $splat['OutputFile'] -eq 'n')) {
-                if ($target_computers) {
+                # if ($target_computers) {
                 
-                    $no_terminal_output = $target_computers | & $command @splat
-                }
-                else {
-                    $no_terminal_output = & $command @splat
-                }
+                #     $no_terminal_output = $target_computers | & $command @splat
+                # }
+                # else {
+                $no_terminal_output = & $command @splat
+                # }
             }
             else {
                 $runasjob = $null
@@ -315,12 +318,14 @@ function PSTechSupportMenu {
                     } -ArgumentList @($(pwd), $functionpath, $target_computers, $function_selection, $splat)
                 }
                 else {
-                    if ($target_computers) {
-                        $no_terminal_output = $target_computers | & $command @splat
-                    }
-                    else {
-                        $no_terminal_output = & $command @splat
-                    }
+                    # if ($target_computers) {
+                    #     $no_terminal_output = $target_computers | & $command @splat
+                    # }
+                    # else {
+                    $splat_String = $splat.getenumerator() | % { "-$($_.name) $($_.value)" }
+                    Invoke-Expression -command "$command $splat_string"
+                    # $no_terminal_output = & $command @splat
+                    # }
                 }
             }
 

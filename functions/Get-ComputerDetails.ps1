@@ -44,217 +44,121 @@ function Get-ComputerDetails {
             ValueFromPipeline = $true,
             Position = 0
         )]
-        [String[]]$TargetComputer,
+        $TargetComputer,
         [string]$Outputfile
     )
-
+    $targetcomputer
+    read-host "target computer above, $outputfile"
     ## 1. define date variable (used for filename creation)
-    ## 2. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
-    ## 3. Outputfile path needs to be created regardless of how Targetcomputer is submitted to function
-    BEGIN {
-        ## 1. define date variable (used for filename creation)
-        $thedate = Get-Date -Format 'yyyy-MM-dd'
-        ## 2. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
-        if ($null -eq $TargetComputer) {
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected pipeline input for targetcomputer." -Foregroundcolor Yellow
+    $thedate = Get-Date -Format 'yyyy-MM-dd'
+
+    $TargetComputer = Get-Targets -TargetComputer $TargetComputer
+    $targetcomputer
+    read-host "target computer above"
+    $str_title_var = "PCdetails"
+    if ($Outputfile.tolower() -eq 'n') {
+        Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected 'N' input for outputfile, skipping creation of outputfile."
+    }
+    else {
+        if ($Outputfile.toLower() -eq '') {
+            $REPORT_DIRECTORY = "$str_title_var"
         }
         else {
-            ## Assigns localhost value
-            if ($TargetComputer -in @('', '127.0.0.1', 'localhost')) {
-                $TargetComputer = @('127.0.0.1')
-            }
-            ## If input is a file, gets content
-            elseif ($(Test-Path $Targetcomputer -erroraction SilentlyContinue) -and ($TargetComputer.count -eq 1)) {
-                $TargetComputer = Get-Content $TargetComputer
-            }
-            ## A. Separates any comma-separated strings into an array, otherwise just creates array
-            ## B. Then, cycles through the array to process each hostname/hostname substring using LDAP query
-            else {
-                ## A.
-                if ($Targetcomputer -like "*,*") {
-                    $TargetComputer = $TargetComputer -split ','
-                }
-                else {
-                    $Targetcomputer = @($Targetcomputer)
-                }
-        
-                ## B. LDAP query each TargetComputer item, create new list / sets back to Targetcomputer when done.
-                $NewTargetComputer = [System.Collections.Arraylist]::new()
-                foreach ($computer in $TargetComputer) {
-                    ## CREDITS FOR The code this was adapted from: https://intunedrivemapping.azurewebsites.net/DriveMapping
-                    if ([string]::IsNullOrEmpty($env:USERDNSDOMAIN) -and [string]::IsNullOrEmpty($searchRoot)) {
-                        Write-Error "LDAP query `$env:USERDNSDOMAIN is not available!"
-                        Write-Warning "You can override your AD Domain in the `$overrideUserDnsDomain variable"
-                    }
-                    else {
-        
-                        # if no domain specified fallback to PowerShell environment variable
-                        if ([string]::IsNullOrEmpty($searchRoot)) {
-                            $searchRoot = $env:USERDNSDOMAIN
-                        }
-
-                        $matching_hostnames = (([adsisearcher]"(&(objectCategory=Computer)(name=$computer*))").findall()).properties
-                        $matching_hostnames = $matching_hostnames.name
-                        $NewTargetComputer += $matching_hostnames
-                    }
-                }
-                $TargetComputer = $NewTargetComputer
-            }
-            $TargetComputer = $TargetComputer | Where-object { $_ -ne $null } | Select -Unique
-            # Safety catch
-            if ($null -eq $TargetComputer) {
-                return
-            }
+            $REPORT_DIRECTORY = $outputfile            
         }
-        ## 3. Outputfile handling - either create default, create filenames using input, or skip creation if $outputfile = 'n'.
-        $str_title_var = "PCdetails"
-        if ($Outputfile.tolower() -eq 'n') {
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected 'N' input for outputfile, skipping creation of outputfile."
-        }
-        else {
-            if ((Get-Command -Name "Get-OutputFileString" -ErrorAction SilentlyContinue) -and ($null -ne $env:PSMENU_DIR)) {
-                if ($Outputfile.toLower() -eq '') {
-                    $REPORT_DIRECTORY = "$str_title_var"
-                }
-                else {
-                    $REPORT_DIRECTORY = $outputfile            
-                }
-                $OutputFile = Get-OutputFileString -TitleString $REPORT_DIRECTORY -Rootdirectory $env:PSMENU_DIR -FolderTitle $REPORT_DIRECTORY -ReportOutput
-            }
-            else {
-                Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Function was not run as part of Terminal Menu - does not have utility functions." -Foregroundcolor Yellow
-                if ($outputfile.tolower() -eq '') {
-                    $iterator_var = 0
-                    while ($true) {
-                        $outputfile = "reports\$thedate\$REPORT_DIRECTORY\$str_title_var-$thedate"
-                        if ((Test-Path "$outputfile.csv") -or (Test-Path "$outputfile.xlsx")) {
-                            $iterator_var++
-                            $outputfile += "$([string]$iterator_var)"
-                        }
-                        else {
-                            break
-                        }
-                    }
-
-
-                }
-                try {
-                    $outputdir = $outputfile | split-path -parent
-                    if (-not (Test-Path $outputdir -ErrorAction SilentlyContinue)) {
-                        New-Item -ItemType Directory -Path $($outputfile | split-path -parent) -Force | Out-Null
-                    }
-                }
-                catch {
-                    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: $Outputfile has no parent directory." -Foregroundcolor Yellow
-                }
-
-
-            }
-        }
-        ## 4. Create empty results container
-        $results = [system.collections.arraylist]::new()
+        $OutputFile = Get-OutputFileString -TitleString $REPORT_DIRECTORY -Rootdirectory $env:USERPROFILE\PSTechSupportMenu -FolderTitle $REPORT_DIRECTORY -ReportOutput
     }
 
-    ## Collects computer details from specified computers using CIM commands  
-    PROCESS {
-        ForEach ($single_computer in $TargetComputer) {
-            if ($single_computer) {
-                # ping test
-                $pingreply = Test-Connection $single_computer -Count 1 -Quiet
-                if ($pingreply) {
 
-                    ## Save results to variable
-                    $single_result = Invoke-Command -ComputerName $single_computer -Scriptblock {
-                        # Gets active user, computer manufacturer, model, BIOS version & release date, Win Build number, total RAM, last boot time, and total system up time.
-                        # object returned to $results list
-                        $computersystem = Get-CimInstance -Class Win32_Computersystem
-                        $bios = Get-CimInstance -Class Win32_BIOS
-                        $operatingsystem = Get-CimInstance -Class Win32_OperatingSystem
+    ## 4. Create empty results container
+    #$results = [system.collections.arraylist]::new()
 
-                        $lastboot = (Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime
-                        $uptime = ((Get-Date) - $lastboot).ToString("dd\.hh\:mm\:ss")
-                        $obj = [PSCustomObject]@{
-                            Manufacturer    = $($computersystem.manufacturer)
-                            Model           = $($computersystem.model)
-                            CurrentUser     = $((get-process -name 'explorer' -includeusername -erroraction silentlycontinue).username)
-                            WindowsBuild    = $($operatingsystem.buildnumber)
-                            BiosVersion     = $($bios.smbiosbiosversion)
-                            BiosReleaseDate = $($bios.releasedate)
-                            TotalRAM        = $((Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property capacity -Sum).sum / 1gb)
-                            LastBoot        = $lastboot
-                            SystemUptime    = $uptime
-                        }
-                        $obj
-                    } | Select PSComputerName, * -ExcludeProperty RunspaceId, PSshowcomputername -ErrorAction SilentlyContinue
+    ## Ping Test for Connectivity:
+    $TargetComputer = $TargetComputer | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
+    $targetcomputer
+    read-host "target computer above"
+    ## Save results to variable
+    $results = Invoke-Command -ComputerName $TargetComputer -Scriptblock {
+        # Gets active user, computer manufacturer, model, BIOS version & release date, Win Build number, total RAM, last boot time, and total system up time.
+        # object returned to $results list
+        $computersystem = Get-CimInstance -Class Win32_Computersystem
+        $bios = Get-CimInstance -Class Win32_BIOS
+        $operatingsystem = Get-CimInstance -Class Win32_OperatingSystem
 
-                    $results.add($single_result) | out-null
-                }
-                else {
-                    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: $single_computer is offline." -Foregroundcolor Yellow
-                }
-            }
+        $lastboot = (Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime
+        $uptime = ((Get-Date) - $lastboot).ToString("dd\.hh\:mm\:ss")
+        $obj = [PSCustomObject]@{
+            Manufacturer    = $($computersystem.manufacturer)
+            Model           = $($computersystem.model)
+            CurrentUser     = $((get-process -name 'explorer' -includeusername -erroraction silentlycontinue).username)
+            WindowsBuild    = $($operatingsystem.buildnumber)
+            BiosVersion     = $($bios.smbiosbiosversion)
+            BiosReleaseDate = $($bios.releasedate)
+            TotalRAM        = $((Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property capacity -Sum).sum / 1gb)
+            LastBoot        = $lastboot
+            SystemUptime    = $uptime
         }
-    }
+        $obj
+    } | Select PSComputerName, * -ExcludeProperty RunspaceId, PSshowcomputername -ErrorAction SilentlyContinue
 
-    ## Output of results to CSV, XLSX, terminal, or gridview depending on the $OutputFile parameter
-    END {
-        if ($results) {
-            ## Sort the results
-            $results = $results | sort -property pscomputername
-            if ($outputfile.tolower() -eq 'n') {
-                # Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected 'N' input for outputfile, skipping creation of outputfile."
-                if ($results.count -le 2) {
-                    $results | Format-List
-                    # $results | Out-GridView
-                }
-                else {
-                    $results | out-gridview -Title $str_title_var
-                }
+    if ($results) {
+        ## Sort the results
+        $results = $results | sort -property pscomputername
+        if ($outputfile.tolower() -eq 'n') {
+            # Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected 'N' input for outputfile, skipping creation of outputfile."
+            if ($results.count -le 2) {
+                $results | Format-List
+                # $results | Out-GridView
             }
             else {
-                $results | Export-Csv -Path "$outputfile.csv" -NoTypeInformation
-                ## Try ImportExcel
-                try {
-
-                    Import-Module ImportExcel
-
-                    ## xlsx attempt:
-                    $params = @{
-                        AutoSize             = $true
-                        TitleBackgroundColor = 'Blue'
-                        TableName            = $str_title_var
-                        TableStyle           = 'Medium9' # => Here you can chosse the Style you like the most
-                        BoldTopRow           = $true
-                        WorksheetName        = $str_title_var
-                        PassThru             = $true
-                        Path                 = "$Outputfile.xlsx" # => Define where to save it here!
-                    }
-                    $Content = Import-Csv "$Outputfile.csv"
-                    $xlsx = $Content | Export-Excel @params
-                    $ws = $xlsx.Workbook.Worksheets[$params.Worksheetname]
-                    $ws.View.ShowGridLines = $false # => This will hide the GridLines on your file
-                    Close-ExcelPackage $xlsx
-                }
-                catch {
-                    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: ImportExcel module not found, skipping xlsx creation." -Foregroundcolor Yellow
-                }
-                try {
-                    Invoke-item "$($outputfile | split-path -Parent)"
-                }
-                catch {
-                    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Could not open output folder." -Foregroundcolor Yellow
-                    Invoke-item "$outputfile.csv"
-                }
+                $results | out-gridview -Title $str_title_var
             }
         }
         else {
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: No results to output."
+            $results | Export-Csv -Path "$outputfile.csv" -NoTypeInformation
+            ## Try ImportExcel
+            try {
 
-            "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: No results to output from Get-ComputerDetails." | Out-File -FilePath "$outputfile.csv"
+                Import-Module ImportExcel
 
-            Invoke-Item "$outputfile.csv"
+                ## xlsx attempt:
+                $params = @{
+                    AutoSize             = $true
+                    TitleBackgroundColor = 'Blue'
+                    TableName            = $str_title_var
+                    TableStyle           = 'Medium9' # => Here you can chosse the Style you like the most
+                    BoldTopRow           = $true
+                    WorksheetName        = $str_title_var
+                    PassThru             = $true
+                    Path                 = "$Outputfile.xlsx" # => Define where to save it here!
+                }
+                $Content = Import-Csv "$Outputfile.csv"
+                $xlsx = $Content | Export-Excel @params
+                $ws = $xlsx.Workbook.Worksheets[$params.Worksheetname]
+                $ws.View.ShowGridLines = $false # => This will hide the GridLines on your file
+                Close-ExcelPackage $xlsx
+            }
+            catch {
+                Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: ImportExcel module not found, skipping xlsx creation." -Foregroundcolor Yellow
+            }
+            
+            try {
+                Invoke-item "$($outputfile | split-path -Parent)"
+            }
+            catch {
+                Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Could not open output folder." -Foregroundcolor Yellow
+                Invoke-item "$outputfile.csv"
+            }
         }
-        # read-host "Press enter to return results."
-        return $results
     }
+    else {
+        Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: No results to output."
+
+        "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: No results to output from Get-ComputerDetails." | Out-File -FilePath "$outputfile.csv"
+
+        Invoke-Item "$outputfile.csv"
+    }
+    # read-host "Press enter to return results."
+    return $results
+    
 }

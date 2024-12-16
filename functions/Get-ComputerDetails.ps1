@@ -37,24 +37,21 @@ function Get-ComputerDetails {
         Author: albddnbn (Alex B.)
         Project Site: https://github.com/albddnbn/PSTerminalMenu
     #>
-    [CmdletBinding()]
     param (
         [Parameter(
             Mandatory = $true,
             ValueFromPipeline = $true,
             Position = 0
         )]
-        $TargetComputer,
+        $ComputerName,
         [string]$Outputfile
     )
-    $targetcomputer
-    read-host "target computer above, $outputfile"
-    ## 1. define date variable (used for filename creation)
-    $thedate = Get-Date -Format 'yyyy-MM-dd'
 
-    $TargetComputer = Get-Targets -TargetComputer $TargetComputer
-    $targetcomputer
-    read-host "target computer above"
+    $ComputerName = Get-Targets -TargetComputer $ComputerName
+
+    ## Ping Test for Connectivity:
+    $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
+    
     $str_title_var = "PCdetails"
     if ($Outputfile.tolower() -eq 'n') {
         Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected 'N' input for outputfile, skipping creation of outputfile."
@@ -73,12 +70,8 @@ function Get-ComputerDetails {
     ## 4. Create empty results container
     #$results = [system.collections.arraylist]::new()
 
-    ## Ping Test for Connectivity:
-    $TargetComputer = $TargetComputer | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
-    $targetcomputer
-    read-host "target computer above"
     ## Save results to variable
-    $results = Invoke-Command -ComputerName $TargetComputer -Scriptblock {
+    $results = Invoke-Command -ComputerName $ComputerName -Scriptblock {
         # Gets active user, computer manufacturer, model, BIOS version & release date, Win Build number, total RAM, last boot time, and total system up time.
         # object returned to $results list
         $computersystem = Get-CimInstance -Class Win32_Computersystem

@@ -49,7 +49,7 @@ function Add-PrinterLogicPrinter {
             ValueFromPipeline = $true,
             Position = 0
         )]
-        [String[]]$TargetComputer,
+        [String[]]$ComputerName,
         [string]$PrinterName
     )
     ## 1. TargetComputer handling if not supplied through pipeline
@@ -58,32 +58,32 @@ function Add-PrinterLogicPrinter {
     BEGIN {
         $thedate = Get-Date -Format 'yyyy-MM-dd'
         ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
-        if ($null -eq $TargetComputer) {
+        if ($null -eq $ComputerName) {
             Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected pipeline input for targetcomputer." -Foregroundcolor Yellow
         }
         else {
             ## Assigns localhost value
-            if ($TargetComputer -in @('', '127.0.0.1', 'localhost')) {
-                $TargetComputer = @('127.0.0.1')
+            if ($ComputerName -in @('', '127.0.0.1', 'localhost')) {
+                $ComputerName = @('127.0.0.1')
             }
             ## If input is a file, gets content
-            elseif ($(Test-Path $Targetcomputer -erroraction SilentlyContinue) -and ($TargetComputer.count -eq 1)) {
-                $TargetComputer = Get-Content $TargetComputer
+            elseif ($(Test-Path $ComputerName -erroraction SilentlyContinue) -and ($ComputerName.count -eq 1)) {
+                $ComputerName = Get-Content $ComputerName
             }
             ## A. Separates any comma-separated strings into an array, otherwise just creates array
             ## B. Then, cycles through the array to process each hostname/hostname substring using LDAP query
             else {
                 ## A.
-                if ($Targetcomputer -like "*,*") {
-                    $TargetComputer = $TargetComputer -split ','
+                if ($ComputerName -like "*,*") {
+                    $ComputerName = $ComputerName -split ','
                 }
                 else {
-                    $Targetcomputer = @($Targetcomputer)
+                    $ComputerName = @($ComputerName)
                 }
         
                 ## B. LDAP query each TargetComputer item, create new list / sets back to Targetcomputer when done.
                 $NewTargetComputer = [System.Collections.Arraylist]::new()
-                foreach ($computer in $TargetComputer) {
+                foreach ($computer in $ComputerName) {
                     ## CREDITS FOR The code this was adapted from: https://intunedrivemapping.azurewebsites.net/DriveMapping
                     if ([string]::IsNullOrEmpty($env:USERDNSDOMAIN) -and [string]::IsNullOrEmpty($searchRoot)) {
                         Write-Error "LDAP query `$env:USERDNSDOMAIN is not available!"
@@ -101,11 +101,11 @@ function Add-PrinterLogicPrinter {
                         $NewTargetComputer += $matching_hostnames
                     }
                 }
-                $TargetComputer = $NewTargetComputer
+                $ComputerName = $NewTargetComputer
             }
-            $TargetComputer = $TargetComputer | Where-object { $_ -ne $null } | Select -Unique
+            $ComputerName = $ComputerName | Where-object { $_ -ne $null } | Select -Unique
             # Safety catch
-            if ($null -eq $TargetComputer) {
+            if ($null -eq $ComputerName) {
                 return
             }
         }
@@ -155,7 +155,7 @@ function Add-PrinterLogicPrinter {
     ## 2. Ping the single target computer one time as test before attempting remote session.
     ## 3. If machine was responsive, run scriptblock to attempt connection to printerlogic printer, save results to object
     PROCESS {
-        ForEach ($single_computer in $TargetComputer) {
+        ForEach ($single_computer in $ComputerName) {
             ## 1.
             if ($single_computer) {
                 ## 2. test with ping:

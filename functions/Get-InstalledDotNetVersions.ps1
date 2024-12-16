@@ -38,209 +38,106 @@ function Get-InstalledDotNetversions {
         Author: albddnbn (Alex B.)
         Project Site: https://github.com/albddnbn/PSTerminalMenu
     #>
-    [CmdletBinding()]
     param (
         [Parameter(
             Mandatory = $true,
             ValueFromPipeline = $true,
             Position = 0
         )]
-        [String[]]$ComputerName,
-        [string]$Outputfile = ''
+        $ComputerName,
+        [string]$Outputfile
     )
     ## 1. Handle Targetcomputer input if it's not supplied through pipeline.
     ## 2. Create output filepath if necessary.
     ## 3. Create empty results arraylist to hold results from each target machine (collected during the PROCESS block).
-    BEGIN {
-        $thedate = Get-Date -Format 'yyyy-MM-dd'
-        ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
-        if ($null -eq $ComputerName) {
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected pipeline for targetcomputer." -Foregroundcolor Yellow
+    $ComputerName = Get-Targets -TargetComputer $ComputerName
+
+    ## Ping Test for Connectivity:
+    $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
+    
+
+    ## 2. Outputfile handling - either create default, create filenames using input, or skip creation if $outputfile = 'n'.
+    $str_title_var = "InstalledDotNet"
+    if ($Outputfile.tolower() -eq 'n') {
+        Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected 'N' input for outputfile, skipping creation of outputfile."
+    }
+    else {
+        if ($Outputfile.toLower() -eq '') {
+            $REPORT_DIRECTORY = "$str_title_var"
         }
         else {
-            ## Assigns localhost value
-            if ($ComputerName -in @('', '127.0.0.1', 'localhost')) {
-                $ComputerName = @('127.0.0.1')
-            }
-            ## If input is a file, gets content
-            elseif ($(Test-Path $ComputerName -erroraction SilentlyContinue) -and ($ComputerName.count -eq 1)) {
-                $ComputerName = Get-Content $ComputerName
-            }
-            ## A. Separates any comma-separated strings into an array, otherwise just creates array
-            ## B. Then, cycles through the array to process each hostname/hostname substring using LDAP query
-            else {
-                ## A.
-                if ($ComputerName -like "*,*") {
-                    $ComputerName = $ComputerName -split ','
-                }
-                else {
-                    $ComputerName = @($ComputerName)
-                }
-        
-                ## B. LDAP query each TargetComputer item, create new list / sets back to Targetcomputer when done.
-                $NewTargetComputer = [System.Collections.Arraylist]::new()
-                foreach ($computer in $ComputerName) {
-                    ## CREDITS FOR The code this was adapted from: https://intunedrivemapping.azurewebsites.net/DriveMapping
-                    if ([string]::IsNullOrEmpty($env:USERDNSDOMAIN) -and [string]::IsNullOrEmpty($searchRoot)) {
-                        Write-Error "LDAP query `$env:USERDNSDOMAIN is not available!"
-                        Write-Warning "You can override your AD Domain in the `$overrideUserDnsDomain variable"
-                    }
-                    else {
-        
-                        # if no domain specified fallback to PowerShell environment variable
-                        if ([string]::IsNullOrEmpty($searchRoot)) {
-                            $searchRoot = $env:USERDNSDOMAIN
-                        }
-
-                        $matching_hostnames = (([adsisearcher]"(&(objectCategory=Computer)(name=$computer*))").findall()).properties
-                        $matching_hostnames = $matching_hostnames.name
-                        $NewTargetComputer += $matching_hostnames
-                    }
-                }
-                $ComputerName = $NewTargetComputer
-            }
-            $ComputerName = $ComputerName | Where-object { $_ -ne $null } | Select -Unique
-            # Safety catch
-            if ($null -eq $ComputerName) {
-                return
-            }
+            $REPORT_DIRECTORY = $outputfile            
         }
-
-        ## 2. Outputfile handling - either create default, create filenames using input, or skip creation if $outputfile = 'n'.
-        $str_title_var = "InstalledDotNet"
-        if ($Outputfile.tolower() -eq 'n') {
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected 'N' input for outputfile, skipping creation of outputfile."
-        }
-        else {
-            if ((Get-Command -Name "Get-OutputFileString" -ErrorAction SilentlyContinue) -and ($null -ne $env:PSMENU_DIR)) {
-                if ($Outputfile.toLower() -eq '') {
-                    $REPORT_DIRECTORY = "$str_title_var"
-                }
-                else {
-                    $REPORT_DIRECTORY = $outputfile            
-                }
-                $OutputFile = Get-OutputFileString -TitleString $REPORT_DIRECTORY -Rootdirectory $env:PSMENU_DIR -FolderTitle $REPORT_DIRECTORY -ReportOutput
-            }
-            else {
-                Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Function was not run as part of Terminal Menu - does not have utility functions." -Foregroundcolor Yellow
-                if ($outputfile.tolower() -eq '') {
-                    $iterator_var = 0
-                    while ($true) {
-                        $outputfile = "$env:PSMENU_DIR\reports\$thedate\$REPORT_DIRECTORY\$str_title_var-$thedate"
-                        if ((Test-Path "$outputfile.csv") -or (Test-Path "$outputfile.xlsx")) {
-                            $iterator_var++
-                            $outputfile = "$env:PSMENU_DIR\reports\$thedate\$REPORT_DIRECTORY\$str_title_var-$([string]$iterator_var)"
-                        }
-                        else {
-                            break
-                        }
-                    }
-                }
-
-                ## Try to get output directory path and make sure it exists.
-                try {
-                    $outputdir = $outputfile | split-path -parent
-                    if (-not (Test-Path $outputdir -ErrorAction SilentlyContinue)) {
-                        New-Item -ItemType Directory -Path $($outputfile | split-path -parent) -Force | Out-Null
-                    }
-                }
-                catch {
-                    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: $Outputfile has no parent directory." -Foregroundcolor Yellow
-                }
-            }
-        }
-
-        ## 3. Create empty results container
-        $results = [system.collections.arraylist]::new()
+        $OutputFile = Get-OutputFileString -TitleString $REPORT_DIRECTORY -Rootdirectory $env:USERPROFILE\PSTechSupportMenu -FolderTitle $REPORT_DIRECTORY -ReportOutput
     }
 
     ## 1. Make sure no $null or empty values are submitted to the ping test or scriptblock execution.
     ## 2. Ping the single target computer one time as test before attempting remote session.
     ## 3. If machine was responseive, run scriptblock to logged in user, info on teams/zoom processes, etc.
-    PROCESS {
-        ForEach ($single_computer in $ComputerName) {
+    $results = Invoke-Command -ComputerName $ComputerName -Scriptblock {
+        Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse | `
+            Get-ItemProperty -Name version -EA 0 | Where { $_.PSChildName -Match '^(?!S)\p{L}' } |`
+            Select PSChildName, version
 
-            ## 1. empty Targetcomputer values will cause errors to display during test-connection / rest of code
-            if ($single_computer) {
-                ## 2. Send one test ping
-                $ping_result = Test-Connection $single_computer -count 1 -Quiet
-                if ($ping_result) {
-                    # Get Computers details and create an object
-                    $target_installed_dotnet = Invoke-Command -ComputerName $single_computer -Scriptblock {
-                        Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse | `
-                            Get-ItemProperty -Name version -EA 0 | Where { $_.PSChildName -Match '^(?!S)\p{L}' } |`
-                            Select PSChildName, version
+    } | Select PSComputerName, * -ExcludeProperty RunspaceId, PSshowcomputername -ErrorAction SilentlyContinue
 
-                    } | Select PSComputerName, * -ExcludeProperty RunspaceId, PSshowcomputername -ErrorAction SilentlyContinue
-                    ForEach ($single_result in $target_installed_dotnet) {
-                        $results.add($single_result) | out-null
-                    }
-                }
-                else {
-                    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: $single_computer is offline." -Foregroundcolor Yellow
-                }
-            }
-        }
-    }
     ## 1. If there are results - sort them by the hostname (pscomputername) property.
     ## 2. If the user specified 'n' for outputfile - just output to terminal or gridview.
     ## 3. Create .csv/.xlsx reports as necessary.
-    END {
-        if ($results) {
-            # $testresults = [system.collections.arraylist]::new()
+    if ($results) {
+        # $testresults = [system.collections.arraylist]::new()
 
-            ForEach ($single_result in $results) {
-                $single_result
-            }
+        ForEach ($single_result in $results) {
+            $single_result
+        }
 
-            ## 1. Sort any existing results by computername
-            $results = $results | sort -property pscomputername
-            ## 2. Output to gridview if user didn't choose report output.
-            if ($outputfile.tolower() -eq 'n') {
-                $results | out-gridview -Title "Installed .NET Versions"
-            }
-            else {
-                ## 3. Create .csv/.xlsx reports if possible
-                $results | Export-Csv -Path "$outputfile.csv" -NoTypeInformation
-                ## Try ImportExcel
-                try {
-                    $params = @{
-                        AutoSize             = $true
-                        TitleBackgroundColor = 'Blue'
-                        TableName            = $str_title_var
-                        TableStyle           = 'Medium9' # => Here you can chosse the Style you like the most
-                        BoldTopRow           = $true
-                        WorksheetName        = $str_title_var
-                        PassThru             = $true
-                        Path                 = "$Outputfile.xlsx" # => Define where to save it here!
-                    }
-                    $Content = Import-Csv "$Outputfile.csv"
-                    $xlsx = $Content | Export-Excel @params
-                    $ws = $xlsx.Workbook.Worksheets[$params.Worksheetname]
-                    $ws.View.ShowGridLines = $false # => This will hide the GridLines on your file
-                    Close-ExcelPackage $xlsx
-                }
-                catch {
-                    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: ImportExcel module not found, skipping xlsx creation." -Foregroundcolor Yellow
-                }
-                ## Try opening directory (that might contain xlsx and csv reports), default to opening csv which should always exist
-                try {
-                    Invoke-item "$($outputfile | split-path -Parent)"
-                }
-                catch {
-                    # Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Could not open output folder." -Foregroundcolor Yellow
-                    Invoke-item "$outputfile.csv"
-                }
-            }
+        ## 1. Sort any existing results by computername
+        $results = $results | sort -property pscomputername
+        ## 2. Output to gridview if user didn't choose report output.
+        if ($outputfile.tolower() -eq 'n') {
+            $results | out-gridview -Title "Installed .NET Versions"
         }
         else {
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: No results to output."
-
-            "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: No results to output from Get-InstalledDotNetVersions." | Out-File -FilePath "$outputfile.csv"
-
-            Invoke-Item "$outputfile.csv"
+            ## 3. Create .csv/.xlsx reports if possible
+            $results | Export-Csv -Path "$outputfile.csv" -NoTypeInformation
+            ## Try ImportExcel
+            try {
+                $params = @{
+                    AutoSize             = $true
+                    TitleBackgroundColor = 'Blue'
+                    TableName            = $str_title_var
+                    TableStyle           = 'Medium9' # => Here you can chosse the Style you like the most
+                    BoldTopRow           = $true
+                    WorksheetName        = $str_title_var
+                    PassThru             = $true
+                    Path                 = "$Outputfile.xlsx" # => Define where to save it here!
+                }
+                $Content = Import-Csv "$Outputfile.csv"
+                $xlsx = $Content | Export-Excel @params
+                $ws = $xlsx.Workbook.Worksheets[$params.Worksheetname]
+                $ws.View.ShowGridLines = $false # => This will hide the GridLines on your file
+                Close-ExcelPackage $xlsx
+            }
+            catch {
+                Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: ImportExcel module not found, skipping xlsx creation." -Foregroundcolor Yellow
+            }
+            ## Try opening directory (that might contain xlsx and csv reports), default to opening csv which should always exist
+            try {
+                Invoke-item "$($outputfile | split-path -Parent)"
+            }
+            catch {
+                # Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Could not open output folder." -Foregroundcolor Yellow
+                Invoke-item "$outputfile.csv"
+            }
         }
-        # read-host "Press enter to return results."
-        return $results
     }
+    else {
+        Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: No results to output."
+
+        "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: No results to output from Get-InstalledDotNetVersions." | Out-File -FilePath "$outputfile.csv"
+
+        Invoke-Item "$outputfile.csv"
+    }
+    # read-host "Press enter to return results."
+    return $results
 }

@@ -50,10 +50,8 @@ function Count-TempProfiles {
     param(
         [Parameter(
             Mandatory = $true,
-            ValueFromPipeline = $true,
-            Position = 0
         )]
-        [String[]]$ComputerName,
+        $ComputerName,
         [string]$Outputfile = '',
         [string]$TempFolderSuffix = "$env:USERDOMAIN"
     )

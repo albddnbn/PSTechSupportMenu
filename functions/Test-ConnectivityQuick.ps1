@@ -24,14 +24,12 @@ function Test-ConnectivityQuick {
         Author: albddnbn (Alex B.)
         Project Site: https://github.com/albddnbn/PSTerminalMenu
     #>
-    [CmdletBinding()]
+    
     param(
         [Parameter(
             Mandatory = $true,
-            ValueFromPipeline = $true,
-            Position = 0
         )]
-        [String[]]$ComputerName,
+        $ComputerName,
         $PingCount = 1
     )
     ## 1. Set PingCount - # of pings sent to each target machine.

@@ -29,7 +29,7 @@ function Scan-Inventory {
         Author: albddnbn (Alex B.)
         Project Site: https://github.com/albddnbn/PSTerminalMenu
     #>
-    [CmdletBinding()]
+    
     param(
         [String]$ScanTitle = 'Inventory',
         [string]$ScanList

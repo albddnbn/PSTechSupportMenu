@@ -33,10 +33,8 @@ Function Apply-DellCommandUpdates {
     param(
         [Parameter(
             Mandatory = $true,
-            ValueFromPipeline = $true,
-            Position = 0
         )]
-        [String[]]$ComputerName,
+        $ComputerName,
         $WeeklyUpdates
     )
     ## 1. Handling TargetComputer input if not supplied through pipeline.

@@ -32,10 +32,8 @@ function Copy-RemoteFiles {
     param(        
         [Parameter(
             Mandatory = $true,
-            ValueFromPipeline = $true,
-            Position = 0
         )]
-        [String[]]$ComputerName,
+        $ComputerName,
         [string]$TargetPath,
         [string]$OutputFolder
     )

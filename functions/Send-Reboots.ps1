@@ -20,14 +20,11 @@ function Send-Reboots {
         Author: albddnbn (Alex B.)
         Project Site: https://github.com/albddnbn/PSTerminalMenu
     #>
-    [CmdletBinding()]
     param(
         [Parameter(
             Mandatory = $true,
-            ValueFromPipeline = $true,
-            Position = 0
         )]
-        [String[]]$ComputerName,
+        $ComputerName,
         [Parameter(Mandatory = $false)]
         [string]$RebootMessage,
         # the time before reboot in seconds, 3600 = 1hr, 300 = 5min

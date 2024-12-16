@@ -32,17 +32,13 @@ Function Install-NewTeams {
         Author: albddnbn (Alex B.)
         Project Site: https://github.com/albddnbn/PSTerminalMenu
     #>
-    [CmdletBinding()]
-    param(
+    param (
         [Parameter(
             Mandatory = $true,
-            ValueFromPipeline = $true,
-            Position = 0
         )]
-        [String[]]$ComputerName,
+        $ComputerName,
         [string]$skip_occupied_computers = 'y'
     )
-    BEGIN {
         ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
         if ($null -eq $ComputerName) {
             Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected pipeline input for targetcomputer." -Foregroundcolor Yellow
@@ -109,14 +105,12 @@ Function Install-NewTeams {
     
         ## Create empty collections list for skipped target machines
         $missed_computers = [system.collections.arraylist]::new()
-    }
     ## *Remove teams classic and install/provision new teams client on machines*
     ## 1. Check $ComputerName for $null / '' values
     ## 2. Send one test ping
     ## 3. Create PSSession on on target machine
     ## 4. Copy the New Teams folder to target, using the session
     ## 5. Execute script - removes Teams classic / installs & provisions new Teams client
-    PROCESS {
         ForEach ($single_computer in $ComputerName) {
 
             ## 1. Check $single_computer for $null / '' values
@@ -189,10 +183,8 @@ Function Install-NewTeams {
                 }
             }
         }
-    }
     ## 1. Output the missed computers list to a text file in reports dir / new teams
     ## 2. Function complete - read-host to allow pause for debugging errors/etc
-    END {
         if (-not $env:PSMENU_DIR) {
             $env:PSMENU_DIR = pwd
         }
@@ -218,5 +210,4 @@ Function Install-NewTeams {
         Invoke-Item $output_filepath
         
         # read-host "Press enter to continue."
-    }
 }

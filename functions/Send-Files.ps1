@@ -36,13 +36,11 @@ function Send-Files {
         Author: albddnbn (Alex B.)
         Project Site: https://github.com/albddnbn/PSTerminalMenu
     #>
-    [CmdletBinding()]
-    param(        [Parameter(
+    param (
+        [Parameter(
             Mandatory = $true,
-            ValueFromPipeline = $true,
-            Position = 0
         )]
-        [String[]]$ComputerName,
+        $ComputerName,
         [ValidateScript({
                 if (Test-Path $_ -ErrorAction SilentlyContinue) {
                     return $true
@@ -56,72 +54,23 @@ function Send-Files {
         [string]$destinationpath
     )
     ## 1. Handle Targetcomputer input if it's not supplied through pipeline.
-    BEGIN {
         ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
-        if ($null -eq $ComputerName) {
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected pipeline input for targetcomputer." -Foregroundcolor Yellow
-        }
-        else {
-            ## Assigns localhost value
-            if ($ComputerName -in @('', '127.0.0.1', 'localhost')) {
-                $ComputerName = @('127.0.0.1')
-            }
-            ## If input is a file, gets content
-            elseif ($(Test-Path $ComputerName -erroraction SilentlyContinue) -and ($ComputerName.count -eq 1)) {
-                $ComputerName = Get-Content $ComputerName
-            }
-            ## A. Separates any comma-separated strings into an array, otherwise just creates array
-            ## B. Then, cycles through the array to process each hostname/hostname substring using LDAP query
-            else {
-                ## A.
-                if ($ComputerName -like "*,*") {
-                    $ComputerName = $ComputerName -split ','
-                }
-                else {
-                    $ComputerName = @($ComputerName)
-                }
+
+        $ComputerName = Get-Targets -TargetComputer $ComputerName
+
+        ## Ping Test for Connectivity:
+        $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
         
-                ## B. LDAP query each TargetComputer item, create new list / sets back to Targetcomputer when done.
-                $NewTargetComputer = [System.Collections.Arraylist]::new()
-                foreach ($computer in $ComputerName) {
-                    ## CREDITS FOR The code this was adapted from: https://intunedrivemapping.azurewebsites.net/DriveMapping
-                    if ([string]::IsNullOrEmpty($env:USERDNSDOMAIN) -and [string]::IsNullOrEmpty($searchRoot)) {
-                        Write-Error "LDAP query `$env:USERDNSDOMAIN is not available!"
-                        Write-Warning "You can override your AD Domain in the `$overrideUserDnsDomain variable"
-                    }
-                    else {
-        
-                        # if no domain specified fallback to PowerShell environment variable
-                        if ([string]::IsNullOrEmpty($searchRoot)) {
-                            $searchRoot = $env:USERDNSDOMAIN
-                        }
-                        
-                        $matching_hostnames = (([adsisearcher]"(&(objectCategory=Computer)(name=$computer*))").findall()).properties
-                        $matching_hostnames = $matching_hostnames.name
-                        $NewTargetComputer += $matching_hostnames
-                    }
-                }
-                $ComputerName = $NewTargetComputer
-            }
-            $ComputerName = $ComputerName | Where-object { $_ -ne $null } | Select -Unique
-            # Safety catch
-            if ($null -eq $ComputerName) {
-                return
-            }
-        }
 
         $informational_string = ""
 
         ## make sure destination path is formatted correctly:
         # if destination path is a folder path, add the source file name to the end of the path
-
-    }
     ## 1. Make sure no $null or empty values are submitted to the ping test or scriptblock execution.
     ## 2. Ping the single target computer one time as test before attempting remote session.
     ## 3. Use session to copy file from local computer.
     ##    Report on success/fail
     ## 4. Remove the pssession.
-    PROCESS {
         ForEach ($single_computer in $ComputerName) {
             ## 1. no empty Targetcomputer values past this point
             if ($single_computer) {
@@ -158,9 +107,7 @@ function Send-Files {
             
             }
         }
-    }
     ## 1. Write an ending message to terminal.
-    END {
         ## announcement file for when function is run as background job
         if (-not $env:PSMENU_DIR) {
             $env:PSMENU_DIR = $(pwd)
@@ -189,5 +136,4 @@ function Send-Files {
         Invoke-Item "$output_filepath"
         
         # read-host "`nPress [ENTER] to continue."
-    }
 }

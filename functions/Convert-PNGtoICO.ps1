@@ -13,7 +13,7 @@ function Convert-PNGtoICO {
         SOURCE: https://www.powershellgallery.com/packages/RoughDraft/0.1/Content/ConvertTo-Icon.ps1
         # wrapped for Terminal menu: Alex B. (albddnbn)
     #>
-    [CmdletBinding()]
+    
     param(
         [string]$File,
         # If set, will output bytes instead of creating a file

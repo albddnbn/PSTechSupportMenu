@@ -47,8 +47,6 @@ function Install-Application {
     param (
         [Parameter(
             Mandatory = $true,
-            ValueFromPipeline = $true,
-            Position = 0
         )]
         $ComputerName,
         [ValidateScript({

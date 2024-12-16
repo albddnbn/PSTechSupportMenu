@@ -38,8 +38,6 @@ function Get-ConnectedPrinters {
     param (
         [Parameter(
             Mandatory = $true,
-            ValueFromPipeline = $true,
-            Position = 0
         )]
         $ComputerName,
         [string]$Outputfile

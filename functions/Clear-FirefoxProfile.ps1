@@ -19,7 +19,7 @@ function Clear-FirefoxProfile {
         Author: albddnbn (Alex B.)
         Project Site: https://github.com/albddnbn/PSTerminalMenu
     #>
-    [CmdletBinding()]
+    
     param (
         [Parameter(Mandatory = $false)]
         [String]$Username,

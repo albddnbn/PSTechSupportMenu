@@ -31,14 +31,12 @@ function Ping-TestReport {
         Author: albddnbn (Alex B.)
         Project Site: https://github.com/albddnbn/PSTerminalMenu
     #>
-    [CmdletBinding()]
-    param(
+    
+    param (
         [Parameter(
             Mandatory = $true,
-            ValueFromPipeline = $true,
-            Position = 0
         )]
-        [String[]]$ComputerName,
+        $ComputerName,    
         $PingCount,
         [string]$Outputfile = ''
     )
@@ -46,119 +44,35 @@ function Ping-TestReport {
     ## 2. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
     ## 3. If provided, use outputfile input to create report output filepath.
     ## 4. Create arraylist to store results
-    BEGIN {
+
+    $ComputerName = Get-Targets -TargetComputer $ComputerName
+
+
         ## 1. Set date and AM / PM variables
         $thedate = Get-Date -Format 'yyyy-MM-dd'
         $am_pm = (Get-Date).ToString('tt')
 
-        ## 2. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
-        if ($null -eq $ComputerName) {
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected pipeline input for targetcomputer." -Foregroundcolor Yellow
-        }
-        else {
-            ## Assigns localhost value
-            if ($ComputerName -in @('', '127.0.0.1', 'localhost')) {
-                $ComputerName = @('127.0.0.1')
-            }
-            ## If input is a file, gets content
-            elseif ($(Test-Path $ComputerName -erroraction SilentlyContinue) -and ($ComputerName.count -eq 1)) {
-                $ComputerName = Get-Content $ComputerName
-            }
-            ## A. Separates any comma-separated strings into an array, otherwise just creates array
-            ## B. Then, cycles through the array to process each hostname/hostname substring using LDAP query
-            else {
-                ## A.
-                if ($ComputerName -like "*,*") {
-                    $ComputerName = $ComputerName -split ','
-                }
-                else {
-                    $ComputerName = @($ComputerName)
-                }
-        
-                ## B. LDAP query each TargetComputer item, create new list / sets back to Targetcomputer when done.
-                $NewTargetComputer = [System.Collections.Arraylist]::new()
-                foreach ($computer in $ComputerName) {
-                    ## CREDITS FOR The code this was adapted from: https://intunedrivemapping.azurewebsites.net/DriveMapping
-                    if ([string]::IsNullOrEmpty($env:USERDNSDOMAIN) -and [string]::IsNullOrEmpty($searchRoot)) {
-                        Write-Error "LDAP query `$env:USERDNSDOMAIN is not available!"
-                        Write-Warning "You can override your AD Domain in the `$overrideUserDnsDomain variable"
-                    }
-                    else {
-        
-                        # if no domain specified fallback to PowerShell environment variable
-                        if ([string]::IsNullOrEmpty($searchRoot)) {
-                            $searchRoot = $env:USERDNSDOMAIN
-                        }
-
-                        $matching_hostnames = (([adsisearcher]"(&(objectCategory=Computer)(name=$computer*))").findall()).properties
-                        $matching_hostnames = $matching_hostnames.name
-                        $NewTargetComputer += $matching_hostnames
-                    }
-                }
-                $ComputerName = $NewTargetComputer
-            }
-            $ComputerName = $ComputerName | Where-object { $_ -ne $null } | Select -Unique
-            # Safety catch
-            if ($null -eq $ComputerName) {
-                return
-            }
-        }
-
         ## 2. If provided, use outputfile input to create report output filepath.
         ## Outputfile handling - either create default, create filenames using input, or skip creation if $outputfile = 'n'.
-        if ($outputfile) {
-            $str_title_var = "$outputfile-$(Get-Date -Format 'hh-MM')$($am_pm)"
-        }
-        else {
-            $str_title_var = "Pings-$(Get-Date -Format 'hh-MM')$($am_pm)"
-        }
-
+        $str_title_var = "Pings-$Outputfile-$(Get-Date -Format 'hh-MM')$($am_pm)"
         if ($Outputfile.tolower() -eq 'n') {
             Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected 'N' input for outputfile, skipping creation of outputfile."
         }
         else {
-            if ((Get-Command -Name "Get-OutputFileString" -ErrorAction SilentlyContinue) -and ($null -ne $env:PSMENU_DIR)) {
-                if ($Outputfile.toLower() -eq '') {
-                    $REPORT_DIRECTORY = "$str_title_var"
-                }
-                else {
-                    $REPORT_DIRECTORY = $outputfile            
-                }
-                $OutputFile = Get-OutputFileString -TitleString $REPORT_DIRECTORY -Rootdirectory $env:PSMENU_DIR -FolderTitle $REPORT_DIRECTORY -ReportOutput
+            if ($Outputfile.toLower() -eq '') {
+                $REPORT_DIRECTORY = "$str_title_var"
             }
             else {
-                Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Function was not run as part of Terminal Menu - does not have utility functions." -Foregroundcolor Yellow
-                if ($outputfile.tolower() -eq '') {
-                    $iterator_var = 0
-                    while ($true) {
-                        $outputfile = "$env:PSMENU_DIR\reports\$thedate\$REPORT_DIRECTORY\$str_title_var"
-                        if ((Test-Path "$outputfile.csv") -or (Test-Path "$outputfile.xlsx")) {
-                            $iterator_var++
-                            $outputfile = "$env:PSMENU_DIR\reports\$thedate\$REPORT_DIRECTORY\$str_title_var-$([string]$iterator_var)"
-                        }
-                        else {
-                            break
-                        }
-                    }
-                }
-
-                ## Try to get output directory path and make sure it exists.
-                try {
-                    $outputdir = $outputfile | split-path -parent
-                    if (-not (Test-Path $outputdir -ErrorAction SilentlyContinue)) {
-                        New-Item -ItemType Directory -Path $($outputfile | split-path -parent) -Force | Out-Null
-                    }
-                }
-                catch {
-                    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: $Outputfile has no parent directory." -Foregroundcolor Yellow
-                }
+                $REPORT_DIRECTORY = $outputfile            
             }
+            $OutputFile = Get-OutputFileString -TitleString $REPORT_DIRECTORY -Rootdirectory $env:USERPROFILE\PSTechSupportMenu -FolderTitle $REPORT_DIRECTORY -ReportOutput
         }
+
+
         ## 3. Create arraylist to store results
         $results = [system.collections.arraylist]::new()
 
         $PingCount = [int]$PingCount
-    }
 
     ## 1. Ping EACH Target computer / record results into ps object, add to arraylist (results_container)
     ## 2. Set object property values:
@@ -166,7 +80,6 @@ function Ping-TestReport {
     ## 4. Number of responses
     ## 5. Calculate average response time for successful responses
     ## 6. Calculate packet loss percentage
-    PROCESS {
         ForEach ($single_computer in $ComputerName) {
             ## 1. empty Targetcomputer values will cause errors to display during test-connection / rest of code
             if ($single_computer) {
@@ -209,10 +122,8 @@ function Ping-TestReport {
                 $results.add($obj) | Out-Null
             }
         }
-    }
 
     ## Report file creation or terminal output
-    END {
         if ($results) {
             ## 1. Sort any existing results by computername
             $results = $results | sort -property pscomputername
@@ -259,5 +170,4 @@ function Ping-TestReport {
         }
         # read-host "`nPress [ENTER] to return results."
         return $results
-    }
 }

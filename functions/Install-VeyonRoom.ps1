@@ -24,14 +24,12 @@ function Install-VeyonRoom {
         Author: albddnbn (Alex B.)
         Project Site: https://github.com/albddnbn/PSTerminalMenu
     #>
-    [CmdletBinding()]
+    
     param(
         [Parameter(
             Mandatory = $true,
-            ValueFromPipeline = $true,
-            Position = 0
         )]
-        [String[]]$ComputerName,
+        $ComputerName,
         [string]$RoomName,
         # comma-separated list of computers that get Veyon master installation.
         [string]$Master_Computer

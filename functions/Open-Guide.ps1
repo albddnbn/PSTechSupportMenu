@@ -1,5 +1,5 @@
 function Open-Guide {
-    [CmdletBinding()]
+    
     <#
     .SYNOPSIS
         Opens PSTerminalMenu Wiki in browser.

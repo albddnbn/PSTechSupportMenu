@@ -8,7 +8,7 @@ function Add-PrinterLogicPrinter {
     .DESCRIPTION
         PrinterLogic Client software has to be installed on target machine(s) and connecting to your organization's 'Printercloud' instance using the registration key.
 
-    .PARAMETER TargetComputer
+    .PARAMETER ComputerName
         Target computer or computers of the function.
         Single hostname, ex: 't-client-01' or 't-client-01.domain.edu'
         Path to text file containing one hostname per line, ex: 'D:\computers.txt'
@@ -45,7 +45,7 @@ function Add-PrinterLogicPrinter {
     
     param (
         [Parameter(
-            Mandatory = $true,
+            Mandatory = $true
         )]
         [String[]]$ComputerName,
         [string]$PrinterName

@@ -6,7 +6,7 @@ function Get-ConnectedPrinters {
     .DESCRIPTION
         This function, unlike some others, only takes a single string DNS hostname of a target computer.
 
-    .PARAMETER TargetComputer
+    .PARAMETER ComputerName
         Target computer or computers of the function.
         Single hostname, ex: 't-client-01' or 't-client-01.domain.edu'
         Path to text file containing one hostname per line, ex: 'D:\computers.txt'
@@ -37,7 +37,7 @@ function Get-ConnectedPrinters {
     #>
     param (
         [Parameter(
-            Mandatory = $true,
+            Mandatory = $true
         )]
         $ComputerName,
         [string]$Outputfile

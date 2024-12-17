@@ -15,7 +15,7 @@ function Copy-RemoteFiles {
     .PARAMETER OutputPath
         Path to folder to store retrieved files. Ex: 'C:\users\abuddenb\Desktop\grabbed-files'
 
-    .PARAMETER TargetComputer
+    .PARAMETER ComputerName
         Target computer or computers of the function.
         Single hostname, ex: 't-client-01' or 't-client-01.domain.edu'
         Path to text file containing one hostname per line, ex: 'D:\computers.txt'
@@ -31,7 +31,7 @@ function Copy-RemoteFiles {
     #>
     param(        
         [Parameter(
-            Mandatory = $true,
+            Mandatory = $true
         )]
         $ComputerName,
         [string]$TargetPath,

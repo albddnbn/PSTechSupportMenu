@@ -6,7 +6,7 @@ function Send-Reboots {
     .DESCRIPTION
         If a reboot msg isn't provided, no reboot msg/warning will be shown to logged in users.
 
-    .PARAMETER TargetComputer
+    .PARAMETER ComputerName
         Target computer or computers of the function.
         Single hostname, ex: 't-client-01' or 't-client-01.domain.edu'
         Path to text file containing one hostname per line, ex: 'D:\computers.txt'
@@ -22,7 +22,7 @@ function Send-Reboots {
     #>
     param(
         [Parameter(
-            Mandatory = $true,
+            Mandatory = $true
         )]
         $ComputerName,
         [Parameter(Mandatory = $false)]

@@ -11,7 +11,7 @@ Function Apply-DellCommandUpdates {
             2. Computers without Dell Command | Update installed, and were skipped.
             3. Computers that have begun to apply updates and should be rebooting momentarily.
 
-    .PARAMETER TargetComputer
+    .PARAMETER ComputerName
         Target computer or computers of the function.
         Single hostname, ex: 't-client-01' or 't-client-01.domain.edu'
         Path to text file containing one hostname per line, ex: 'D:\computers.txt'
@@ -32,7 +32,7 @@ Function Apply-DellCommandUpdates {
     #>
     param(
         [Parameter(
-            Mandatory = $true,
+            Mandatory = $true
         )]
         $ComputerName,
         $WeeklyUpdates

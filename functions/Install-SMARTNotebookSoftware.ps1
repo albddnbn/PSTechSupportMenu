@@ -7,7 +7,7 @@ function Install-SMARTNotebookSoftware {
     .DESCRIPTION
         May also be able to use a hostname file eventually.
 
-    .PARAMETER TargetComputer
+    .PARAMETER ComputerName
         Target computer or computers of the function.
         Single hostname, ex: 't-client-01' or 't-client-01.domain.edu'
         Path to text file containing one hostname per line, ex: 'D:\computers.txt'
@@ -22,13 +22,11 @@ function Install-SMARTNotebookSoftware {
         Project Site: https://github.com/albddnbn/PSTerminalMenu
     #>
     
-    param(
+    param (
         [Parameter(
-            Mandatory = $true,
-            ValueFromPipeline = $true,
-            Position = 0
+            Mandatory = $true
         )]
-        [String[]]$ComputerName
+        $ComputerName
     )
     ## 1. Handling TargetComputer input if not supplied through pipeline.
     ## 2. Make sure SMARTNotebook folder is in ./deploy/irregular

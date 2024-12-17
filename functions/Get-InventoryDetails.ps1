@@ -9,7 +9,7 @@ function Get-InventoryDetails {
         This has mainly been tested with Dell equipment - computers and monitors.
         Still in testing/development phase but should work.
 
-    .PARAMETER TargetComputer
+    .PARAMETER ComputerName
         Target computer or computers of the function.
         Single hostname, ex: 't-client-01' or 't-client-01.domain.edu'
         Path to text file containing one hostname per line, ex: 'D:\computers.txt'
@@ -43,7 +43,7 @@ function Get-InventoryDetails {
     #>
     param (
         [Parameter(
-            Mandatory = $true,
+            Mandatory = $true
         )]
         $ComputerName,
         [string]$Outputfile

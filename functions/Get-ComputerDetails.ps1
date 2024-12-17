@@ -6,7 +6,7 @@ function Get-ComputerDetails {
 
     .DESCRIPTION
 
-    .PARAMETER TargetComputer
+    .PARAMETER ComputerName
         Target computer or computers of the function.
         Single hostname, ex: 't-client-01' or 't-client-01.domain.edu'
         Path to text file containing one hostname per line, ex: 'D:\computers.txt'
@@ -39,7 +39,7 @@ function Get-ComputerDetails {
     #>
     param (
         [Parameter(
-            Mandatory = $true,
+            Mandatory = $true
         )]
         $ComputerName,
         [string]$Outputfile
@@ -48,7 +48,7 @@ function Get-ComputerDetails {
     $ComputerName = Get-Targets -TargetComputer $ComputerName
 
     ## Ping Test for Connectivity:
-    $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
+    # $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
     
     $str_title_var = "PCdetails"
     if ($Outputfile.tolower() -eq 'n') {
@@ -90,7 +90,10 @@ function Get-ComputerDetails {
             SystemUptime    = $uptime
         }
         $obj
-    } | Select PSComputerName, * -ExcludeProperty RunspaceId, PSshowcomputername -ErrorAction SilentlyContinue
+    } -ErrorVariable RemoteError | Select PSComputerName, * -ExcludeProperty RunspaceId, PSshowcomputername -ErrorAction SilentlyContinue
+
+    ## errored out invoke-commands:
+    $errored_machines = $RemoteError.CategoryInfo.TargetName
 
     if ($results) {
         ## Sort the results
@@ -107,6 +110,9 @@ function Get-ComputerDetails {
         }
         else {
             $results | Export-Csv -Path "$outputfile.csv" -NoTypeInformation
+            
+            "These machines errored out:`r" | Out-File -FilePath "$outputfile-Errors.csv"
+            $errored_machines | Out-File -FilePath "$outputfile-Errors.csv" -Append
             ## Try ImportExcel
             try {
 

@@ -1,11 +1,9 @@
 Function Set-ChromeClearDataOnExit {
-    param(
+    param (
         [Parameter(
-            Mandatory = $true,
-            ValueFromPipeline = $true,
-            Position = 0
+            Mandatory = $true
         )]
-        [String[]]$ComputerName
+        $ComputerName
     )
     ## 1. Handling TargetComputer input if not supplied through pipeline.
     ## 2. Define scriptblock that sets Chrome data deletion registry settings.

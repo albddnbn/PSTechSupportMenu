@@ -11,7 +11,7 @@ function Count-TempProfiles {
         2. Specific computers on the network that are having issues syncing with domain / network shares.
         3. Specific files that cause issues with redirected folders and roaming user profiles.
 
-    .PARAMETER TargetComputer
+    .PARAMETER ComputerName
         Target computer or computers of the function.
         Single hostname, ex: 't-client-01' or 't-client-01.domain.edu'
         Path to text file containing one hostname per line, ex: 'D:\computers.txt'
@@ -49,7 +49,7 @@ function Count-TempProfiles {
     #>
     param(
         [Parameter(
-            Mandatory = $true,
+            Mandatory = $true
         )]
         $ComputerName,
         [string]$Outputfile = '',

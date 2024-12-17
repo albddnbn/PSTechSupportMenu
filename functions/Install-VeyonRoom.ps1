@@ -6,7 +6,7 @@ function Install-VeyonRoom {
     .DESCRIPTION
         Specify the master computer using the parameter, the /NoMaster installation switch is used to install on all other computers.
 
-    .PARAMETER TargetComputer
+    .PARAMETER ComputerName
         Target computer or computers of the function.
         Single hostname, ex: 't-client-01' or 't-client-01.domain.edu'
         Path to text file containing one hostname per line, ex: 'D:\computers.txt'
@@ -27,7 +27,7 @@ function Install-VeyonRoom {
     
     param(
         [Parameter(
-            Mandatory = $true,
+            Mandatory = $true
         )]
         $ComputerName,
         [string]$RoomName,

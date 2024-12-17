@@ -7,7 +7,7 @@ Function Remove-TeamsClassic {
         The Teams Machine-Wide Installer .msi uninstallation WILL return an exit code indicating the product is not currently installed - this is expected.
         The script goes on to remove the Teams Machine-Wide Installer registry key, and then checks for any user installations of Teams Classic.
 
-    .PARAMETER TargetComputer
+    .PARAMETER ComputerName
         Target computer or computers of the function.
         Single hostname, ex: 't-client-01' or 't-client-01.domain.edu'
         Path to text file containing one hostname per line, ex: 'D:\computers.txt'
@@ -29,24 +29,22 @@ Function Remove-TeamsClassic {
     #>
     param (
         [Parameter(
-            Mandatory = $true,
+            Mandatory = $true
         )]
         $ComputerName,
         [Parameter(
-            Mandatory = $true,
-            Position = 1
-        
+            Mandatory = $true        
         )]
         [string]$DoNotDisturbUsers
     )
     ## 1. Handling of TargetComputer input
     ## 2. ask to skip occupied computers
     ## 3. find the Purge-TeamsClassic.ps1 file.
-        ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
-        $ComputerName = Get-Targets -TargetComputer $ComputerName
+    ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
+    $ComputerName = Get-Targets -TargetComputer $ComputerName
 
-        ## Ping Test for Connectivity:
-        $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
+    ## Ping Test for Connectivity:
+    $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
         
 
     ## 2. Ask to skip occupied computers
@@ -77,7 +75,7 @@ Function Remove-TeamsClassic {
     Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Found $($teamsclassic_scrubber_ps1.fullname)."
     Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Beginning removal of Teams Classic on $($ComputerName -join ', ')"
 
-## Use PURGE-TEAMSCLASSIC.PS1 file from LOCALSCRIPTS, on each target computer to remove Teams Classic for all users / system.
+    ## Use PURGE-TEAMSCLASSIC.PS1 file from LOCALSCRIPTS, on each target computer to remove Teams Classic for all users / system.
     ForEach ($single_computer in $ComputerName) {
 
         if ($single_computer) {
@@ -91,7 +89,7 @@ Function Remove-TeamsClassic {
         }
     }
 
-## Function completion msg
+    ## Function completion msg
 
     ## create file to announce completion, for when function is run as background job
     if (-not $env:PSMENU_DIR) {

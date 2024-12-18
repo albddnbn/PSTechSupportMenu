@@ -53,7 +53,7 @@ function Get-CurrentUser {
     $ComputerName = Get-Targets -TargetComputer $ComputerName
 
     ## Ping Test for Connectivity:
-    $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
+    # $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
 
     ## 2. Outputfile handling - either create default, create filenames using input, or skip creation if $outputfile = 'n'.
     $str_title_var = "CurrentUsers"
@@ -82,8 +82,10 @@ function Get-CurrentUser {
 
         }
         $obj
-    } | Select PSComputerName, * -ExcludeProperty RunspaceId, PSshowcomputername -ErrorAction SilentlyContinue
+    } -ErrorVariable RemoteError | Select PSComputerName, * -ExcludeProperty RunspaceId, PSshowcomputername -ErrorAction SilentlyContinue
     
+    $errored_machines = $RemoteError.CategoryInfo.TargetName
+
     ## 1. If there are results - sort them by the hostname (pscomputername) property.
     ## 2. If the user specified 'n' for outputfile - just output to terminal or gridview.
     ## 3. Create .csv/.xlsx reports as necessary.
@@ -97,6 +99,9 @@ function Get-CurrentUser {
         else {
             ## 3. Create .csv/.xlsx reports if possible
             $results | Export-Csv -Path "$outputfile.csv" -NoTypeInformation
+            "These machines errored out:`r" | Out-File -FilePath "$outputfile-Errors.csv"
+            $errored_machines | Out-File -FilePath "$outputfile-Errors.csv" -Append
+         
             ## Try ImportExcel
             try {
 

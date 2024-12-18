@@ -45,7 +45,7 @@ function Add-PrinterLogicPrinter {
     
     param (
         [Parameter(
-            Mandatory = $true
+            Mandatory = $true, ValueFromPipeline = $true
         )]
         [String[]]$ComputerName,
         [string]$PrinterName
@@ -53,60 +53,13 @@ function Add-PrinterLogicPrinter {
     ## 1. TargetComputer handling if not supplied through pipeline
     ## 2. Scriptblock to connect to printerlogic printer
     ## 3. Results containers for overall results and skipped computers.
-    BEGIN {
-        $thedate = Get-Date -Format 'yyyy-MM-dd'
-        ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
-        if ($null -eq $ComputerName) {
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected pipeline input for targetcomputer." -Foregroundcolor Yellow
-        }
-        else {
-            ## Assigns localhost value
-            if ($ComputerName -in @('', '127.0.0.1', 'localhost')) {
-                $ComputerName = @('127.0.0.1')
-            }
-            ## If input is a file, gets content
-            elseif ($(Test-Path $ComputerName -erroraction SilentlyContinue) -and ($ComputerName.count -eq 1)) {
-                $ComputerName = Get-Content $ComputerName
-            }
-            ## A. Separates any comma-separated strings into an array, otherwise just creates array
-            ## B. Then, cycles through the array to process each hostname/hostname substring using LDAP query
-            else {
-                ## A.
-                if ($ComputerName -like "*,*") {
-                    $ComputerName = $ComputerName -split ','
-                }
-                else {
-                    $ComputerName = @($ComputerName)
-                }
-        
-                ## B. LDAP query each TargetComputer item, create new list / sets back to Targetcomputer when done.
-                $NewTargetComputer = [System.Collections.Arraylist]::new()
-                foreach ($computer in $ComputerName) {
-                    ## CREDITS FOR The code this was adapted from: https://intunedrivemapping.azurewebsites.net/DriveMapping
-                    if ([string]::IsNullOrEmpty($env:USERDNSDOMAIN) -and [string]::IsNullOrEmpty($searchRoot)) {
-                        Write-Error "LDAP query `$env:USERDNSDOMAIN is not available!"
-                        Write-Warning "You can override your AD Domain in the `$overrideUserDnsDomain variable"
-                    }
-                    else {
-        
-                        # if no domain specified fallback to PowerShell environment variable
-                        if ([string]::IsNullOrEmpty($searchRoot)) {
-                            $searchRoot = $env:USERDNSDOMAIN
-                        }
+    $ComputerName = Get-Targets -TargetComputer $ComputerName
 
-                        $matching_hostnames = (([adsisearcher]"(&(objectCategory=Computer)(name=$computer*))").findall()).properties
-                        $matching_hostnames = $matching_hostnames.name
-                        $NewTargetComputer += $matching_hostnames
-                    }
-                }
-                $ComputerName = $NewTargetComputer
-            }
-            $ComputerName = $ComputerName | Where-object { $_ -ne $null } | Select -Unique
-            # Safety catch
-            if ($null -eq $ComputerName) {
-                return
-            }
-        }
+
+
+
+    $thedate = Get-Date -Format 'yyyy-MM-dd'
+
         
         ## 2. Define the scriptblock that connects machine to target printer in printerlogic cloud instance
         $connect_to_printer_block = {
@@ -145,36 +98,19 @@ function Add-PrinterLogicPrinter {
             }
         }
 
-        ## 4. Create empty results containers
-        $results = [system.collections.arraylist]::new()
-        $missed_computers = [system.collections.arraylist]::new()
-    }
+
+        $results = Invoke-Command -ComputerName $single_computer -scriptblock $connect_to_printer_block -ArgumentList $PrinterName -ErrorVariable RemoteError 
+
+    ## errored out invoke-commands:
+    $errored_machines = $RemoteError.CategoryInfo.TargetName
+
     ## 1. Make sure no $null or empty values are submitted to the ping test or scriptblock execution.
     ## 2. Ping the single target computer one time as test before attempting remote session.
     ## 3. If machine was responsive, run scriptblock to attempt connection to printerlogic printer, save results to object
-    PROCESS {
-        ForEach ($single_computer in $ComputerName) {
-            ## 1.
-            if ($single_computer) {
-                ## 2. test with ping:
-                $pingreply = Test-Connection $single_computer -Count 1 -Quiet
-                if ($pingreply) {
-                    ## 3.
-                    $printer_connection_results = Invoke-Command -ComputerName $single_computer -scriptblock $connect_to_printer_block -ArgumentList $PrinterName
-            
-                    $results.add($printer_connection_results)
-                }
-                else {
-                    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: $single_computer is not responding to ping." -Foregroundcolor Red
-                    $missed_computers.Add($single_computer)
-                }
-            }
-        }
-    }
+
     ## 1. If there are any results - output to file
     ## 2. Output missed computers to terminal.
     ## 3. Return results arraylist
-    END {
         ## 1.
         if ($results) {
 
@@ -186,18 +122,17 @@ function Add-PrinterLogicPrinter {
 
             "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: No results to output." | Out-File -FilePath "$env:PSMENU_DIR\reports\PrinterLogicConnectResults_$thedate.txt" -Append
             "These computers did not respond to ping:" | Out-File -FilePath "$env:PSMENU_DIR\reports\PrinterLogicConnectResults_$thedate.txt" -Append
-            $missed_computers | Out-File -FilePath "$env:PSMENU_DIR\reports\PrinterLogicConnectResults_$thedate.txt" -Append
+            $errored_machines | Out-File -FilePath "$env:PSMENU_DIR\reports\PrinterLogicConnectResults_$thedate.txt" -Append
 
             Invoke-Item "$env:PSMENU_DIR\reports\PrinterLogicConnectResults_$thedate.txt"
         }
         ## 2. Output unresponsive computers
         Write-Host "These computers did not respond to ping:"
         Write-Host ""
-        $missed_computers
+        $errored_machines
         Write-Host ""
         # read-host "Press enter to return results."
 
         ## 3. return results arraylist
         return $results
-    }
 }

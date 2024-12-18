@@ -47,12 +47,10 @@ function Get-AssetInformation {
     ## 2. Outputfile handling - either create default, create filenames using input, or skip creation if $outputfile = 'n'.
     ## 3. Define scriptblock that retrieves asset info from local computer.
     ## 4. Create empty results container.
-    $thedate = Get-Date -Format 'yyyy-MM-dd'
-
     $ComputerName = Get-Targets -TargetComputer $ComputerName
 
     ## Ping Test for Connectivity:
-    $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
+    # $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
    
     ## 2. Outputfile handling - either create default, create filenames using input, or skip creation if $outputfile = 'n'.
     $str_title_var = "AssetInfo"
@@ -116,8 +114,11 @@ function Get-AssetInformation {
         return $obj
     }
 
-    $results = Invoke-Command -ComputerName $ComputerName -ScriptBlock $asset_info_scriptblock `
-    | Select PSComputerName, * -ExcludeProperty RunspaceId, PSshowcomputername -ErrorAction SilentlyContinue
+    $results = Invoke-Command -ComputerName $ComputerName -ScriptBlock $asset_info_scriptblock -ErrorVariable RemoteError `
+    | Select PSComputerName, * -ExcludeProperty RunspaceId, PSshowcomputername
+
+    ## errored out invoke-commands:
+    $errored_machines = $RemoteError.CategoryInfo.TargetName
 
     ## 1. If there were any results - output them to terminal and/or report files as necessary.
     if ($results) {
@@ -128,6 +129,10 @@ function Get-AssetInformation {
         }
         else {
             $results | Export-Csv -Path "$outputfile.csv" -NoTypeInformation
+            "These machines errored out:`r" | Out-File -FilePath "$outputfile-Errors.csv"
+            $errored_machines | Out-File -FilePath "$outputfile-Errors.csv" -Append
+            
+            
             ## Try ImportExcel
             try {
 

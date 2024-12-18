@@ -49,7 +49,9 @@ function Get-ComputerDetails {
 
     ## Ping Test for Connectivity:
     # $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
-    
+    $ComputerName = Test-Connectivity -ComputerName $ComputerName
+
+
     $str_title_var = "PCdetails"
     if ($Outputfile.tolower() -eq 'n') {
         Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected 'N' input for outputfile, skipping creation of outputfile."

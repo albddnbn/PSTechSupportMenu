@@ -51,13 +51,12 @@ function Scan-ForAppOrFilePath {
     ## 2. Handle targetcomputer if not submitted through pipeline
     ## 3. Create output filepath, clean any input file search paths that are local,  
     ## and handle TargetComputer input / filter offline hosts.
-    $thedate = Get-Date -Format 'yyyy-MM-dd'
     ## 2. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
 
     $ComputerName = Get-Targets -TargetComputer $ComputerName
 
     ## Ping Test for Connectivity:
-    $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
+    $ComputerName = Test-Connectivity -ComputerName $ComputerName
         
 
     ## 3. Outputfile handling - either create default, create filenames using input - report files are mandatory 

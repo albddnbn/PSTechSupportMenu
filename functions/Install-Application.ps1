@@ -76,8 +76,6 @@ function Install-Application {
     
     $unresponsive_computers = $AllComputers | Where-Object { $ComputerName -notcontains $_ }
 
-    ## outfile to temp to store unresponsive computers
-    $unresponsive_computers | Out-File "$env:PSMENU_DIR\reports\$thedate\unresponsive-computers-$thedate.txt" -Force
 
     ## 2. If AppName parameter was not supplied, apps chosen through menu will be installed on target machine(s).
     if (-not $appName) {
@@ -176,12 +174,8 @@ function Install-Application {
     ## computers that were unresponsive
     ## apps that weren't able to be installed (weren't found in deployment folder for some reason.)
     ## - If they were presented in menu / chosen, apps should definitely be in deployment folder, though.
-    $unresponsive_computers = [system.collections.arraylist]::new()
     $skipped_applications = [system.collections.arraylist]::new()
 
-    ## installation COMPLETED list - not necessarily completed successfully. just to help with tracking / reporting.
-    $installation_completed = [system.collections.arraylist]::new()
-    
     ## 1. Make sure no $null or empty values are submitted to the ping test or scriptblock execution.
     ## 2. Ping the single target computer one time as test before attempting remote session.
     ## 3. If machine was responsive, cycle through chosen apps and run the local psadt install scriptblock for each one,
@@ -225,6 +219,10 @@ function Install-Application {
         # $installation_completed.add($single_computer) | out-null
     }
     ## 1. Open the folder that will contain reports if necessary.
+
+    ## installation COMPLETED list - not necessarily completed successfully. just to help with tracking / reporting.
+    ## outfile to temp to store unresponsive computers
+    $unresponsive_computers | Out-File "$env:PSMENU_DIR\reports\$thedate\unresponsive-computers-$thedate.txt" -Force
 
     # if ($unresponsive_computers) {
     #     Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Unresponsive computers:" -Foregroundcolor Yellow

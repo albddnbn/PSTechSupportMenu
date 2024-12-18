@@ -30,137 +30,66 @@ function Install-SMARTNotebookSoftware {
     )
     ## 1. Handling TargetComputer input if not supplied through pipeline.
     ## 2. Make sure SMARTNotebook folder is in ./deploy/irregular
-    BEGIN {
-        ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
-        if ($null -eq $ComputerName) {
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected pipeline input for targetcomputer." -Foregroundcolor Yellow
-        }
-        else {
-            ## Assigns localhost value
-            if ($ComputerName -in @('', '127.0.0.1', 'localhost')) {
-                $ComputerName = @('127.0.0.1')
-            }
-            ## If input is a file, gets content
-            elseif ($(Test-Path $ComputerName -erroraction SilentlyContinue) -and ($ComputerName.count -eq 1)) {
-                $ComputerName = Get-Content $ComputerName
-            }
-            ## A. Separates any comma-separated strings into an array, otherwise just creates array
-            ## B. Then, cycles through the array to process each hostname/hostname substring using LDAP query
-            else {
-                ## A.
-                if ($ComputerName -like "*,*") {
-                    $ComputerName = $ComputerName -split ','
-                }
-                else {
-                    $ComputerName = @($ComputerName)
-                }
-        
-                ## B. LDAP query each TargetComputer item, create new list / sets back to Targetcomputer when done.
-                $NewTargetComputer = [System.Collections.Arraylist]::new()
-                foreach ($computer in $ComputerName) {
-                    ## CREDITS FOR The code this was adapted from: https://intunedrivemapping.azurewebsites.net/DriveMapping
-                    if ([string]::IsNullOrEmpty($env:USERDNSDOMAIN) -and [string]::IsNullOrEmpty($searchRoot)) {
-                        Write-Error "LDAP query `$env:USERDNSDOMAIN is not available!"
-                        Write-Warning "You can override your AD Domain in the `$overrideUserDnsDomain variable"
-                    }
-                    else {
-        
-                        # if no domain specified fallback to PowerShell environment variable
-                        if ([string]::IsNullOrEmpty($searchRoot)) {
-                            $searchRoot = $env:USERDNSDOMAIN
-                        }
+    ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
+    $ComputerName = Get-Targets -TargetComputer $ComputerName
+    $ComputerName = Test-Connectivity -ComputerName $ComputerName
 
-                        $matching_hostnames = (([adsisearcher]"(&(objectCategory=Computer)(name=$computer*))").findall()).properties
-                        $matching_hostnames = $matching_hostnames.name
-                        $NewTargetComputer += $matching_hostnames
-                    }
-                }
-                $ComputerName = $NewTargetComputer
-            }
-            $ComputerName = $ComputerName | Where-object { $_ -ne $null } | Select -Unique
-            # Safety catch
-            if ($null -eq $ComputerName) {
-                return
-            }
-        }
-
-        ## 2. Get the smartnotebook folder from irregular applications
-        $SmartNotebookFolder = Get-ChildItem -path "$env:PSMENU_DIR\deploy\irregular" -Filter 'SMARTNotebook' -Directory -Erroraction SilentlyContinue
-        if ($SmartNotebookFolder) {
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Found $($SmartNotebookFolder.FullName), copying to target computers." -foregroundcolor green
-        }
-        else {
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: SMARTNotebook folder not found in irregular applications, exiting." -foregroundcolor red
-            exit
-        }
-
-        ## For each target computer - assign installation method - either office or classroom. Classroom installs the smartboard and ink drivers.
-        Write-Host "Please choose installation method for target computers:"
-        $InstallationTypeReply = Menu @('Office', 'Classroom')
-
+    ## 2. Get the smartnotebook folder from irregular applications
+    $SmartNotebookFolder = Get-ChildItem -path "$env:PSMENU_DIR\deploy\irregular" -Filter 'SMARTNotebook' -Directory -Erroraction SilentlyContinue
+    if ($SmartNotebookFolder) {
+        Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Found $($SmartNotebookFolder.FullName), copying to target computers." -foregroundcolor green
     }
+    else {
+        Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: SMARTNotebook folder not found in irregular applications, exiting." -foregroundcolor red
+        exit
+    }
+
+    ## For each target computer - assign installation method - either office or classroom. Classroom installs the smartboard and ink drivers.
+    Write-Host "Please choose installation method for target computers:"
+    $InstallationTypeReply = Menu @('Office', 'Classroom')
+
     ## 1. Make sure no $null or empty values are submitted to the ping test or scriptblock execution.
     ## 2. Ping the single target computer one time as test before attempting remote session.
     ## 3. If machine was responsive, find PSADT Folder and install SMARTNotebook software.
-    PROCESS {
-        ForEach ($single_computer in $ComputerName) {
-
-            ## 1.
-            if ($single_computer) {
-
-                ## 2. test with ping:
-                $pingreply = Test-Connection $single_computer -Count 1 -Quiet
-                if ($pingreply) {
-                    ## 3. Run PSADT installation on target computers.
-                    Invoke-Command -ComputerName $single_computer -Scriptblock {
-                        $installation_method = $using:InstallationTypeReply
-                        Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] [$env:COMPUTERNAME]:: Installation method set to: $installation_method"
-                        # unblock files
-                        Get-ChildItem -Path "C:\TEMP\SMARTNotebook" -Recurse | Unblock-File
-                        # get Deploy-SMARTNotebook.ps1
-                        $DeployScript = Get-ChildItem -Path "C:\TEMP\SMARTNotebook" -Filter 'Deploy-SMARTNotebook.ps1' -File -ErrorAction SilentlyContinue
-                        if ($DeployScript) {
-                            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Found $($DeployScript.FullName), executing." -foregroundcolor green
-                            Powershell.exe -ExecutionPolicy Bypass "$($DeployScript.FullName)" -DeploymentType "Install" -DeployMode "Silent" -InstallationType "$installation_method"
-                        }
-                        else {
-                            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Deploy-SMARTNotebook.ps1 not found, exiting." -foregroundcolor red
-                            exit
-                        }
-                    }
-                }
-                else {
-                    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: $single_computer is not responding to ping, skipping." -foregroundcolor red
-                }
-    
-            }
+    Invoke-Command -ComputerName $ComputerName -Scriptblock {
+        $installation_method = $using:InstallationTypeReply
+        Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] [$env:COMPUTERNAME]:: Installation method set to: $installation_method"
+        # unblock files
+        Get-ChildItem -Path "C:\TEMP\SMARTNotebook" -Recurse | Unblock-File
+        # get Deploy-SMARTNotebook.ps1
+        $DeployScript = Get-ChildItem -Path "C:\TEMP\SMARTNotebook" -Filter 'Deploy-SMARTNotebook.ps1' -File -ErrorAction SilentlyContinue
+        if ($DeployScript) {
+            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Found $($DeployScript.FullName), executing." -foregroundcolor green
+            Powershell.exe -ExecutionPolicy Bypass "$($DeployScript.FullName)" -DeploymentType "Install" -DeployMode "Silent" -InstallationType "$installation_method"
         }
+        else {
+            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Deploy-SMARTNotebook.ps1 not found, exiting." -foregroundcolor red
+            exit
+        }
+    } -ErrorVariable RemoteError
+
+    $errored_machines = $RemoteError.CategoryInfo.TargetName
+
+    ## create file to announce completion for when being run as background job
+    if (-not $env:PSMENU_DIR) {
+        $env:PSMENU_DIR = pwd
     }
-
-    END {
-
-        ## create file to announce completion for when being run as background job
-        if (-not $env:PSMENU_DIR) {
-            $env:PSMENU_DIR = pwd
-        }
-        ## create simple output path to reports directory
-        $thedate = Get-Date -Format 'yyyy-MM-dd'
-        $DIRECTORY_NAME = 'SMARTNotebook'
-        $OUTPUT_FILENAME = 'SMARTInstall'
-        if (-not (Test-Path "$env:PSMENU_DIR\reports\$thedate\$DIRECTORY_NAME" -ErrorAction SilentlyContinue)) {
-            New-Item -Path "$env:PSMENU_DIR\reports\$thedate\$DIRECTORY_NAME" -ItemType Directory -Force | Out-Null
-        }
-        
-        $counter = 0
-        do {
-            $output_filepath = "$env:PSMENU_DIR\reports\$thedate\$DIRECTORY_NAME\$OUTPUT_FILENAME-$counter.txt"
-        } until (-not (Test-Path $output_filepath -ErrorAction SilentlyContinue))
-
-        "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Finished SMART Learning Suite installation(s)." | Out-File -FilePath $output_filepath -Append
-        "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Installation method: $InstallationTypeReply" | Out-File -FilePath $output_filepath -Append
-        "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Target computer(s):" | Out-File -FilePath $output_filepath -Append
-        $ComputerName | Out-File -FilePath $output_filepath -Append
-        
-        # Read-Host "Press enter to continue."
+    ## create simple output path to reports directory
+    $thedate = Get-Date -Format 'yyyy-MM-dd'
+    $DIRECTORY_NAME = 'SMARTNotebook'
+    $OUTPUT_FILENAME = 'SMARTInstall'
+    if (-not (Test-Path "$env:PSMENU_DIR\reports\$thedate\$DIRECTORY_NAME" -ErrorAction SilentlyContinue)) {
+        New-Item -Path "$env:PSMENU_DIR\reports\$thedate\$DIRECTORY_NAME" -ItemType Directory -Force | Out-Null
     }
+        
+    $counter = 0
+    do {
+        $output_filepath = "$env:PSMENU_DIR\reports\$thedate\$DIRECTORY_NAME\$OUTPUT_FILENAME-$counter"
+    } until (-not (Test-Path $output_filepath -ErrorAction SilentlyContinue))
+
+    "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Finished SMART Learning Suite installation(s)." | Out-File -FilePath $output_filepath -Append
+    "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Installation method: $InstallationTypeReply" | Out-File -FilePath $output_filepath -Append
+    "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Target computer(s):" | Out-File -FilePath $output_filepath -Append
+    $ComputerName | Out-File -FilePath "$output_filepath.txt" -Append
+    $errored_machines | Out-File -FilePath "$output_filepath-errors.txt" -Append
 }

@@ -40,113 +40,55 @@ function Copy-RemoteFiles {
 
     ## 1. Handle Targetcomputer input if it's not supplied through pipeline.
     ## 2. Make sure output folder path exists for remote files to be copied to.
-    BEGIN {
-        $thedate = Get-Date -Format 'yyyy-MM-dd'
-        ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
-        if ($null -eq $ComputerName) {
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected pipeline input for targetcomputer." -Foregroundcolor Yellow
-        }
-        else {
-            ## Assigns localhost value
-            if ($ComputerName -in @('', '127.0.0.1', 'localhost')) {
-                $ComputerName = @('127.0.0.1')
-            }
-            ## If input is a file, gets content
-            elseif ($(Test-Path $ComputerName -erroraction SilentlyContinue) -and ($ComputerName.count -eq 1)) {
-                $ComputerName = Get-Content $ComputerName
-            }
-            ## A. Separates any comma-separated strings into an array, otherwise just creates array
-            ## B. Then, cycles through the array to process each hostname/hostname substring using LDAP query
-            else {
-                ## A.
-                if ($ComputerName -like "*,*") {
-                    $ComputerName = $ComputerName -split ','
-                }
-                else {
-                    $ComputerName = @($ComputerName)
-                }
-        
-                ## B. LDAP query each TargetComputer item, create new list / sets back to Targetcomputer when done.
-                $NewTargetComputer = [System.Collections.Arraylist]::new()
-                foreach ($computer in $ComputerName) {
-                    ## CREDITS FOR The code this was adapted from: https://intunedrivemapping.azurewebsites.net/DriveMapping
-                    if ([string]::IsNullOrEmpty($env:USERDNSDOMAIN) -and [string]::IsNullOrEmpty($searchRoot)) {
-                        Write-Error "LDAP query `$env:USERDNSDOMAIN is not available!"
-                        Write-Warning "You can override your AD Domain in the `$overrideUserDnsDomain variable"
-                    }
-                    else {
-        
-                        # if no domain specified fallback to PowerShell environment variable
-                        if ([string]::IsNullOrEmpty($searchRoot)) {
-                            $searchRoot = $env:USERDNSDOMAIN
-                        }
+    ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
+    $ComputerName = Get-Targets -TargetComputer $ComputerName
 
-                        $matching_hostnames = (([adsisearcher]"(&(objectCategory=Computer)(name=$computer*))").findall()).properties
-                        $matching_hostnames = $matching_hostnames.name
-                        $NewTargetComputer += $matching_hostnames
-                    }
-                }
-                $ComputerName = $NewTargetComputer
-            }
-            $ComputerName = $ComputerName | Where-object { $_ -ne $null } | Select -Unique
-            # Safety catch
-            if ($null -eq $ComputerName) {
-                return
-            }
-        }
+    ## If being run with terminal menu - use full output path
+    # if ($env:PSMENU_DIR) {
+    #     $OutputFolder = "$env:PSMENU_DIR\output\$thedate\$OutputFolder"
+    # }
 
-        ## If being run with terminal menu - use full output path
-        # if ($env:PSMENU_DIR) {
-        #     $OutputFolder = "$env:PSMENU_DIR\output\$thedate\$OutputFolder"
-        # }
+    ## 2. Make sure the outputpath folder exists (remote files are copied here):
 
-        ## 2. Make sure the outputpath folder exists (remote files are copied here):
-
-        if (-not(Test-Path "$OutputFolder" -erroraction SilentlyContinue)) {
-            New-Item -ItemType Directory -Path "$OutputFolder" -ErrorAction SilentlyContinue | out-null
-        }
-        
+    if (-not(Test-Path "$OutputFolder" -erroraction SilentlyContinue)) {
+        New-Item -ItemType Directory -Path "$OutputFolder" -ErrorAction SilentlyContinue | out-null
     }
-
+        
     ## 1. Make sure no $null or empty values are submitted to the ping test or scriptblock execution.
     ## 2. Ping the single target computer one time as test before attempting remote session.
     ## 3. Copy file from pssession on target machine, to local computer.
     ##    Report on success/fail
     ## 4. Remove the pssession.
-    PROCESS {
-        ForEach ($single_computer in $ComputerName) {
-            ## 1. no empty Targetcomputer values past this point
-            if ($single_computer) {
-                ## 2. Make sure machine is responsive on the network
-                $target_network_path = $targetpath -replace 'C:', "\\$single_computer\c$"
-                if ([system.IO.Directory]::Exists("\\$single_computer\c$")) {
-                    if (Test-Path "$target_network_path" -erroraction SilentlyContinue) {
+    ForEach ($single_computer in $ComputerName) {
+        ## 1. no empty Targetcomputer values past this point
+        if ($single_computer) {
+            ## 2. Make sure machine is responsive on the network
+            $target_network_path = $targetpath -replace 'C:', "\\$single_computer\c$"
+            if ([system.IO.Directory]::Exists("\\$single_computer\c$")) {
+                if (Test-Path "$target_network_path" -erroraction SilentlyContinue) {
 
                     
-                        $target_session = New-PSSession $single_computer
+                    $target_session = New-PSSession $single_computer
 
-                        $target_filename = $targetpath | split-path -leaf
+                    $target_filename = $targetpath | split-path -leaf
 
 
-                        Copy-Item -Path "$targetpath" -Destination "$OutputFolder\$single_computer-$target_filename" -FromSession $target_session -Recurse
-                        Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Transfer of $targetpath ($single_computer) to $OutputFolder\$single_computer-$target_filename  complete." -foregroundcolor green
+                    Copy-Item -Path "$targetpath" -Destination "$OutputFolder\$single_computer-$target_filename" -FromSession $target_session -Recurse
+                    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Transfer of $targetpath ($single_computer) to $OutputFolder\$single_computer-$target_filename  complete." -foregroundcolor green
                     
-                        Remove-PSSession $target_session
+                    Remove-PSSession $target_session
 
-                    }
-                    else {
-                        Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Failed to copy $targetpath on $single_computer to $OutputFolder on local computer." -foregroundcolor red
-                    }
-                    ## 4. Bye pssession
                 }
+                else {
+                    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Failed to copy $targetpath on $single_computer to $OutputFolder on local computer." -foregroundcolor red
+                }
+                ## 4. Bye pssession
             }
         }
     }
     ## Open output folder, pause.
-    END {
-        if (Test-Path "$OutputFolder" -erroraction SilentlyContinue) {
-            Invoke-item "$OutputFolder"
-        }
-        # read-host "Press enter to continue."
+    if (Test-Path "$OutputFolder" -erroraction SilentlyContinue) {
+        Invoke-item "$OutputFolder"
     }
+    # read-host "Press enter to continue."
 }

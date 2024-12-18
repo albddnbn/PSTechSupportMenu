@@ -39,145 +39,73 @@ Function Apply-DellCommandUpdates {
     )
     ## 1. Handling TargetComputer input if not supplied through pipeline.
     ## 2. Create empty results container.
-    BEGIN {
-        ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
-        if ($null -eq $ComputerName) {
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected pipeline input for targetcomputer." -Foregroundcolor Yellow
-        }
-        else {
-            ## Assigns localhost value
-            if ($ComputerName -in @('', '127.0.0.1', 'localhost')) {
-                $ComputerName = @('127.0.0.1')
-            }
-            ## If input is a file, gets content
-            elseif ($(Test-Path $ComputerName -erroraction SilentlyContinue) -and ($ComputerName.count -eq 1)) {
-                $ComputerName = Get-Content $ComputerName
-            }
-            ## A. Separates any comma-separated strings into an array, otherwise just creates array
-            ## B. Then, cycles through the array to process each hostname/hostname substring using LDAP query
-            else {
-                ## A.
-                if ($ComputerName -like "*,*") {
-                    $ComputerName = $ComputerName -split ','
-                }
-                else {
-                    $ComputerName = @($ComputerName)
-                }
-        
-                ## B. LDAP query each TargetComputer item, create new list / sets back to Targetcomputer when done.
-                $NewTargetComputer = [System.Collections.Arraylist]::new()
-                foreach ($computer in $ComputerName) {
-                    ## CREDITS FOR The code this was adapted from: https://intunedrivemapping.azurewebsites.net/DriveMapping
-                    if ([string]::IsNullOrEmpty($env:USERDNSDOMAIN) -and [string]::IsNullOrEmpty($searchRoot)) {
-                        Write-Error "LDAP query `$env:USERDNSDOMAIN is not available!"
-                        Write-Warning "You can override your AD Domain in the `$overrideUserDnsDomain variable"
-                    }
-                    else {
-        
-                        # if no domain specified fallback to PowerShell environment variable
-                        if ([string]::IsNullOrEmpty($searchRoot)) {
-                            $searchRoot = $env:USERDNSDOMAIN
-                        }
+    ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
+    $ComputerName = Get-Targets -TargetComputer $ComputerName
 
-                        $matching_hostnames = (([adsisearcher]"(&(objectCategory=Computer)(name=$computer*))").findall()).properties
-                        $matching_hostnames = $matching_hostnames.name
-                        $NewTargetComputer += $matching_hostnames
-                    }
-                }
-                $ComputerName = $NewTargetComputer
-            }
-            $ComputerName = $ComputerName | Where-object { $_ -ne $null } | Select -Unique
-            # Safety catch
-            if ($null -eq $ComputerName) {
-                return
-            }
-        }
-        ## 2. Create results container
-        $results = [system.collections.arraylist]::new()
-    }
     ## 1. Make sure no $null or empty values are submitted to the ping test or scriptblock execution.
     ## 2. Ping the single target computer one time as test before attempting remote session.
     ## 3. If machine was responsive, check for dell command update executable and apply updates, report on results.
-    PROCESS {
-        ForEach ($single_computer in $ComputerName) {
-            ## 1.
-            if ($single_computer) {
+    $results = Invoke-Command -ComputerName $single_computer -scriptblock {
 
-                ## 2. test with ping:
-                $pingreply = Test-Connection $single_computer -Count 1 -Quiet
-                if ($pingreply) {
-                    ## 3. If machine was responsive, check for dell command update executable and apply updates, report on results.
-                    $dcu_apply_result = Invoke-Command -ComputerName $single_computer -scriptblock {
+        $weeklyupdates_setting = $using:WeeklyUpdates
+        $LoggedInUser = (get-process -name 'explorer' -includeusername -erroraction silentlycontinue).username
 
-                        $weeklyupdates_setting = $using:WeeklyUpdates
-                        $LoggedInUser = (get-process -name 'explorer' -includeusername -erroraction silentlycontinue).username
-
-                        $obj = [pscustomobject]@{
-                            DCUInstalled   = "NO"
-                            UpdatesStarted = "NO"
-                            # DCUExitCode    = ""
-                            Username       = $LoggedInUser
-                        }
-                        if ($obj.UserName) {
-                            Write-Host "[$env:COMPUTERNAME] :: $LoggedInUser is logged in, skipping computer." -Foregroundcolor Yellow
-                        }
-                        # $apply_updates_process_started = $false
-                        # find Dell Command Update executable
-                        $dellcommandexe = Get-ChildItem -Path "${env:ProgramFiles(x86)}" -Filter "dcu-cli.exe" -File -Recurse # -ErrorAction SilentlyContinue
-                        if (-not ($dellcommandexe)) {
-                            Write-Host "[$env:COMPUTERNAME] :: NO Dell Command | Update found." -Foregroundcolor Red
-                        }
-                        else {
-                            $obj.DCUInstalled = "YES"
-                        }
-                        if (($obj.Username) -or (-not $dellcommandexe)) {
-                            $obj
-                            break
-                        }
-
-                        Write-Host "[$env:COMPUTERNAME] :: Found $($dellcommandexe.fullname), executing with the /applyupdates -reboot=enable parameters." -ForegroundColor Yellow
-                        # NOTE: abuddenb - Haven't been able to get the -reboot=disable switch to work yet.
-                        Write-Host "[$env:COMPUTERNAME] :: Configuring weekly update schedule."
-                        if ($weeklyupdates_setting.ToLower() -eq 'y') {
-                            &"$($dellcommandexe.fullname)" /configure -scheduleWeekly='Sun,02:00' -silent
-                        }
-                        Write-Host "[$env:COMPUTERNAME] :: Applying updates now." -ForegroundColor Yellow
-                        &$($dellcommandexe.fullname) /applyUpdates -reboot=enable -silent
-
-                        $obj.UpdatesStarted = $true
-        
-                        # return results of a command or any other type of object, so it will be addded to the $results list
-                        $obj
-                    } | Select * -ExcludeProperty RunSpaceId, PSShowComputerName # filters out some properties that don't seem necessary for these functions
-            
-                    $results.Add($dcu_apply_result) | Out-Null
-
-                }
-                else {
-                    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: $single_computer didn't respond to one ping, skipping." -ForegroundColor Yellow
-                }
-            }
+        $obj = [pscustomobject]@{
+            DCUInstalled   = "NO"
+            UpdatesStarted = "NO"
+            # DCUExitCode    = ""
+            Username       = $LoggedInUser
         }
-    }
+        if ($obj.UserName) {
+            Write-Host "[$env:COMPUTERNAME] :: $LoggedInUser is logged in, skipping computer." -Foregroundcolor Yellow
+        }
+        # $apply_updates_process_started = $false
+        # find Dell Command Update executable
+        $dellcommandexe = Get-ChildItem -Path "${env:ProgramFiles(x86)}" -Filter "dcu-cli.exe" -File -Recurse # -ErrorAction SilentlyContinue
+        if (-not ($dellcommandexe)) {
+            Write-Host "[$env:COMPUTERNAME] :: NO Dell Command | Update found." -Foregroundcolor Red
+        }
+        else {
+            $obj.DCUInstalled = "YES"
+        }
+        if (($obj.Username) -or (-not $dellcommandexe)) {
+            $obj
+            break
+        }
+
+        Write-Host "[$env:COMPUTERNAME] :: Found $($dellcommandexe.fullname), executing with the /applyupdates -reboot=enable parameters." -ForegroundColor Yellow
+        # NOTE: abuddenb - Haven't been able to get the -reboot=disable switch to work yet.
+        Write-Host "[$env:COMPUTERNAME] :: Configuring weekly update schedule."
+        if ($weeklyupdates_setting.ToLower() -eq 'y') {
+            &"$($dellcommandexe.fullname)" /configure -scheduleWeekly='Sun,02:00' -silent
+        }
+        Write-Host "[$env:COMPUTERNAME] :: Applying updates now." -ForegroundColor Yellow
+        &$($dellcommandexe.fullname) /applyUpdates -reboot=enable -silent
+
+        $obj.UpdatesStarted = $true
+
+        # return results of a command or any other type of object, so it will be addded to the $results list
+        $obj
+    } -ErrorVariable RemoteError | Select * -ExcludeProperty RunSpaceId, PSShowComputerName # filters out some properties that don't seem necessary for these functions
+
+    $errored_machines = $RemoteError.CategoryInfo.TargetName
+
 
     ## 1. Output results to gridview and terminal
-    END {
-        if ($results) {
-            $results | Out-GridView - "Dell Command | Update Results"
-            $occupied_computers = $($results | where-object { $_.Username } | select-object -expandproperty PSComputerName) -join ', '
-            $need_dell_command_update_installed = $($results | where-object { $_.DCUInstalled -eq 'NO' } | select-object -expandproperty PSComputerName) -join ', '
+    if ($results) {
+        $results | Out-GridView - "Dell Command | Update Results"
+        $occupied_computers = $($results | where-object { $_.Username } | select-object -expandproperty PSComputerName) -join ', '
+        $need_dell_command_update_installed = $($results | where-object { $_.DCUInstalled -eq 'NO' } | select-object -expandproperty PSComputerName) -join ', '
     
-            $currently_applying_updates = $($results | where-object { $_.UpdatesStarted -eq "YES" } | select-object -expandproperty PSComputerName) -join ', '
-            Write-Host "These computers are occupied: " -nonewline
-            Write-Host "$occupied_computers" -Foregroundcolor Yellow
-            Write-Host "`n"
-            Write-Host "These computers need Dell Command | Update installed: " -nonewline
-            Write-Host "$need_dell_command_update_installed" -Foregroundcolor Red
-            Write-Host "`n"
-            Write-Host "These computers have begun to apply updates and should be rebooting momentarily: " -nonewline
-            Write-Host "$currently_applying_updates" -Foregroundcolor Green
-
-        }
-        return $results
+        $currently_applying_updates = $($results | where-object { $_.UpdatesStarted -eq "YES" } | select-object -expandproperty PSComputerName) -join ', '
+        Write-Host "These computers are occupied: " -nonewline
+        Write-Host "$occupied_computers" -Foregroundcolor Yellow
+        Write-Host "`nThese computers need Dell Command | Update installed: " -nonewline
+        Write-Host "$need_dell_command_update_installed" -Foregroundcolor Red
+        Write-Host "`nThese computers have begun to apply updates and should be rebooting momentarily: " -nonewline
+        Write-Host "$currently_applying_updates" -Foregroundcolor Green
+        Write-Host "`nThese computers are unresponsive:"
+        $errored_machines
     }
+    return $results
 }

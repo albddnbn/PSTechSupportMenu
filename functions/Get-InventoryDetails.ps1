@@ -72,7 +72,7 @@ function Get-InventoryDetails {
         $OutputFile = Get-OutputFileString -TitleString $REPORT_DIRECTORY -Rootdirectory $env:USERPROFILE\PSTechSupportMenu -FolderTitle $REPORT_DIRECTORY -ReportOutput
     }
 
-    $results = nvoke-Command -ComputerName $single_computer -scriptblock {
+    $results = Invoke-Command -ComputerName $single_computer -scriptblock {
         $pc_asset_tag = Get-Ciminstance -class win32_systemenclosure | select -exp smbiosassettag
         $pc_model = Get-Ciminstance -class win32_computersystem | select -exp model
         $pc_serial = Get-Ciminstance -class Win32_SystemEnclosure | select -exp serialnumber
@@ -108,9 +108,10 @@ function Get-InventoryDetails {
         # Write-Host "Gathered details from $env:COMPUTERNAME"
         # Write-Host "$obj"
         $obj
-    } | Select * -ExcludeProperty PSShowComputerName, RunspaceId
+    } -ErrorVariable RemoteError | Select * -ExcludeProperty PSShowComputerName, RunspaceId
 
     $not_inventoried = $ComputerName | ? { $_ -notin $results.pscomputername }
+    $not_inventoried += $RemoteError.CategoryInfo.TargetName | ? { $_ -notin $not_inventoried }
 
     ## This section will attempt to output a CSV and XLSX report if anything other than 'n' was used for $Outputfile.
     ## If $Outputfile = 'n', results will be displayed in a gridview, with title set to $str_title_var.

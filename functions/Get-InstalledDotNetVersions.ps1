@@ -77,7 +77,9 @@ function Get-InstalledDotNetversions {
             Get-ItemProperty -Name version -EA 0 | Where { $_.PSChildName -Match '^(?!S)\p{L}' } |`
             Select PSChildName, version
 
-    } | Select PSComputerName, * -ExcludeProperty RunspaceId, PSshowcomputername -ErrorAction SilentlyContinue
+    } -ErrorVariable RemoteError | Select PSComputerName, * -ExcludeProperty RunspaceId, PSshowcomputername -ErrorAction SilentlyContinue
+
+    $errored_machines = $RemoteError.CategoryInfo.TargetName
 
     ## 1. If there are results - sort them by the hostname (pscomputername) property.
     ## 2. If the user specified 'n' for outputfile - just output to terminal or gridview.
@@ -98,6 +100,9 @@ function Get-InstalledDotNetversions {
         else {
             ## 3. Create .csv/.xlsx reports if possible
             $results | Export-Csv -Path "$outputfile.csv" -NoTypeInformation
+            "These machines errored out:`r" | Out-File -FilePath "$outputfile-Errors.csv"
+            $errored_machines | Out-File -FilePath "$outputfile-Errors.csv" -Append
+           
             ## Try ImportExcel
             try {
                 $params = @{

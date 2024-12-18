@@ -55,204 +55,118 @@ function Count-TempProfiles {
         [string]$Outputfile = '',
         [string]$TempFolderSuffix = "$env:USERDOMAIN"
     )
-    BEGIN {
-        ## allow user to press enter for default suffix.
-        if ($TempFolderSuffix -eq '') {
-            $TempFolderSuffix = "$env:USERDOMAIN"
-        }
-        Write-Host "Temporary folder suffix set to: " -NoNewline
-        Write-Host "$TempFolderSuffix" -ForegroundColor Yellow
-        ## 4. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
-        if ($null -eq $ComputerName) {
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected pipeline input for targetcomputer." -Foregroundcolor Yellow
+    ## allow user to press enter for default suffix.
+    if ($TempFolderSuffix -eq '') {
+        $TempFolderSuffix = "$env:USERDOMAIN"
+    }
+    Write-Host "Temporary folder suffix set to: " -NoNewline
+    Write-Host "$TempFolderSuffix" -ForegroundColor Yellow
+    ## 4. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
+    $ComputerName = Get-Targets -TargetComputer $ComputerName
+
+    ## 2. Outputfile handling - either create default, create filenames using input, or skip creation if $outputfile = 'n'.
+    $str_title_var = "TempProfiles"
+    if ($Outputfile.tolower() -eq 'n') {
+        Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected 'N' input for outputfile, skipping creation of outputfile."
+    }
+    else {
+        if ($Outputfile.toLower() -eq '') {
+            $REPORT_DIRECTORY = "$str_title_var"
         }
         else {
-            ## Assigns localhost value
-            if ($ComputerName -in @('', '127.0.0.1', 'localhost')) {
-                $ComputerName = @('127.0.0.1')
-            }
-            ## If input is a file, gets content
-            elseif ($(Test-Path $ComputerName -erroraction SilentlyContinue) -and ($ComputerName.count -eq 1)) {
-                $ComputerName = Get-Content $ComputerName
-            }
-            ## A. Separates any comma-separated strings into an array, otherwise just creates array
-            ## B. Then, cycles through the array to process each hostname/hostname substring using LDAP query
-            else {
-                ## A.
-                if ($ComputerName -like "*,*") {
-                    $ComputerName = $ComputerName -split ','
-                }
-                else {
-                    $ComputerName = @($ComputerName)
-                }
-                ## B. LDAP query each TargetComputer item, create new list / sets back to Targetcomputer when done.
-                $NewTargetComputer = [System.Collections.Arraylist]::new()
-                foreach ($computer in $ComputerName) {
-                    ## CREDITS FOR The code this was adapted from: https://intunedrivemapping.azurewebsites.net/DriveMapping
-                    if ([string]::IsNullOrEmpty($env:USERDNSDOMAIN) -and [string]::IsNullOrEmpty($searchRoot)) {
-                        Write-Error "LDAP query `$env:USERDNSDOMAIN is not available!"
-                        Write-Warning "You can override your AD Domain in the `$overrideUserDnsDomain variable"
+            $REPORT_DIRECTORY = $outputfile            
+        }
+        $OutputFile = Get-OutputFileString -TitleString $REPORT_DIRECTORY -Rootdirectory $env:USERPROFILE\PSTechSupportMenu -FolderTitle $REPORT_DIRECTORY -ReportOutput
+    }
+
+    ForEach ($single_computer in $ComputerName) {
+        if ($single_computer) {
+            ## 2. Check for connectivity
+            if ([System.IO.Directory]::Exists("\\$single_computer\c$\Users")) {
+                Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: $single_computer is online." -Foregroundcolor Green
+
+                # get all temp profiles on computer / count / create object
+                $temp_profile_folders = Get-Childitem -Path "\\$single_computer\c$\Users" -Filter "*.$env:USERDOMAIN*" -Directory -ErrorAction SilentlyContinue
+                ## create object with  user, computer name, folder count to object, add to arraylist
+                ForEach ($single_folder in $temp_profile_folders) {
+
+                    $foldername = $single_folder.name
+
+                    $username = $foldername.split('.')[0]
+                    ## if the user and computer combo are not in results - add with count of 1
+                    if ($results | Where-Object { ($_.User -eq $username) -and ($_.Computer -eq $single_computer) }) {
+                        $results | Where-Object { ($_.User -eq $username) -and ($_.Computer -eq $single_computer) } | ForEach-Object { $_.FolderCount++ }
+                        Write-Host "Found existing entry for $username and $single_computer increased FolderCount by 1."
                     }
                     else {
-                        # if no domain specified fallback to PowerShell environment variable
-                        if ([string]::IsNullOrEmpty($searchRoot)) {
-                            $searchRoot = $env:USERDNSDOMAIN
+                        $temp_profile = [pscustomobject]@{
+                            User        = $username
+                            Computer    = $single_computer
+                            FolderCount = 1
                         }
-
-                        $matching_hostnames = (([adsisearcher]"(&(objectCategory=Computer)(name=$computer*))").findall()).properties
-                        $matching_hostnames = $matching_hostnames.name
-                        $NewTargetComputer += $matching_hostnames
+                        $results.Add($temp_profile) | Out-Null
+                        Write-Host "Added new entry for $username and $single_computer."
                     }
                 }
-                $ComputerName = $NewTargetComputer
-            }
-            $ComputerName = $ComputerName | Where-object { $_ -ne $null } | Select -Unique
-            # Safety catch
-            if ($null -eq $ComputerName) {
-                return
-            }
-        }
-
-        ## 2. Outputfile handling - either create default, create filenames using input, or skip creation if $outputfile = 'n'.
-        $str_title_var = "TempProfiles"
-        if ($Outputfile.tolower() -eq 'n') {
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected 'N' input for outputfile, skipping creation of outputfile."
-        }
-        else {
-            if ((Get-Command -Name "Get-OutputFileString" -ErrorAction SilentlyContinue) -and ($null -ne $env:PSMENU_DIR)) {
-                if ($Outputfile.toLower() -eq '') {
-                    $REPORT_DIRECTORY = "$str_title_var"
-                }
-                else {
-                    $REPORT_DIRECTORY = $outputfile            
-                }
-                $OutputFile = Get-OutputFileString -TitleString $REPORT_DIRECTORY -Rootdirectory $env:PSMENU_DIR -FolderTitle $REPORT_DIRECTORY -ReportOutput
             }
             else {
-                Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Function was not run as part of Terminal Menu - does not have utility functions." -Foregroundcolor Yellow
-                if ($outputfile.tolower() -eq '') {
-                    $iterator_var = 0
-                    while ($true) {
-                        $outputfile = "$env:PSMENU_DIR\reports\$thedate\$REPORT_DIRECTORY\$str_title_var-$thedate"
-                        if ((Test-Path "$outputfile.csv") -or (Test-Path "$outputfile.xlsx")) {
-                            $iterator_var++
-                            $outputfile += "$([string]$iterator_var)"
-                        }
-                        else {
-                            break
-                        }
-                    }
-                }
-                ## Try to get output directory path and make sure it exists.
-                try {
-                    $outputdir = $outputfile | split-path -parent
-                    if (-not (Test-Path $outputdir -ErrorAction SilentlyContinue)) {
-                        New-Item -ItemType Directory -Path $($outputfile | split-path -parent) -Force | Out-Null
-                    }
-                }
-                catch {
-                    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: $Outputfile has no parent directory." -Foregroundcolor Yellow
-                }
-            }
+                Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: $single_computer is offline." -Foregroundcolor Red
+                continue
+            }               
         }
-
-        ## Create results container.
-        $results = [system.collections.arraylist]::new()
     }
 
-    PROCESS {
-        ForEach ($single_computer in $ComputerName) {
-            if ($single_computer) {
-                ## 2. Check for connectivity
-                if ([System.IO.Directory]::Exists("\\$single_computer\c$\Users")) {
-                    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: $single_computer is online." -Foregroundcolor Green
-
-                    # get all temp profiles on computer / count / create object
-                    $temp_profile_folders = Get-Childitem -Path "\\$single_computer\c$\Users" -Filter "*.$env:USERDOMAIN*" -Directory -ErrorAction SilentlyContinue
-                    ## create object with  user, computer name, folder count to object, add to arraylist
-                    ForEach ($single_folder in $temp_profile_folders) {
-
-                        $foldername = $single_folder.name
-
-                        $username = $foldername.split('.')[0]
-                        ## if the user and computer combo are not in results - add with count of 1
-                        if ($results | Where-Object { ($_.User -eq $username) -and ($_.Computer -eq $single_computer) }) {
-                            $results | Where-Object { ($_.User -eq $username) -and ($_.Computer -eq $single_computer) } | ForEach-Object { $_.FolderCount++ }
-                            Write-Host "Found existing entry for $username and $single_computer increased FolderCount by 1."
-                        }
-                        else {
-                            $temp_profile = [pscustomobject]@{
-                                User        = $username
-                                Computer    = $single_computer
-                                FolderCount = 1
-                            }
-                            $results.Add($temp_profile) | Out-Null
-                            Write-Host "Added new entry for $username and $single_computer."
-                        }
-                    }
-                }
-                else {
-                    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: $single_computer is offline." -Foregroundcolor Red
-                    continue
-                }               
-            }
-        }
-    } 
-    END {
-        if ($results) {
-            ## 1. Sort any existing results by computername
-            $results = $results | sort -property pscomputername
-            ## 2. Output to gridview if user didn't choose report output.
-            if ($outputfile.tolower() -eq 'n') {
-                $results | out-gridview -title $str_title_var
-            }
-            else {
-                ## 3. Create .csv/.xlsx reports if possible
-                $results | Export-Csv -Path "$outputfile.csv" -NoTypeInformation
-                ## Try ImportExcel
-                try {
-
-                    Import-Module ImportExcel
-
-                    $params = @{
-                        AutoSize             = $true
-                        TitleBackgroundColor = 'Blue'
-                        TableName            = $str_title_var
-                        TableStyle           = 'Medium9' # => Here you can chosse the Style you like the most
-                        BoldTopRow           = $true
-                        WorksheetName        = $str_title_var
-                        PassThru             = $true
-                        Path                 = "$Outputfile.xlsx" # => Define where to save it here!
-                    }
-                    $Content = Import-Csv "$Outputfile.csv"
-                    $xlsx = $Content | Export-Excel @params
-                    $ws = $xlsx.Workbook.Worksheets[$params.Worksheetname]
-                    $ws.View.ShowGridLines = $false # => This will hide the GridLines on your file
-                    Close-ExcelPackage $xlsx
-                }
-                catch {
-                    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: ImportExcel module not found, skipping xlsx creation." -Foregroundcolor Yellow
-                }
-                ## Try opening directory (that might contain xlsx and csv reports), default to opening csv which should always exist
-                try {
-                    Invoke-item "$($outputfile | split-path -Parent)"
-                }
-                catch {
-                    # Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Could not open output folder." -Foregroundcolor Yellow
-                    Invoke-item "$outputfile.csv"
-                }
-            }
+    if ($results) {
+        ## 1. Sort any existing results by computername
+        $results = $results | sort -property pscomputername
+        ## 2. Output to gridview if user didn't choose report output.
+        if ($outputfile.tolower() -eq 'n') {
+            $results | out-gridview -title $str_title_var
         }
         else {
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: No results to output."
+            ## 3. Create .csv/.xlsx reports if possible
+            $results | Export-Csv -Path "$outputfile.csv" -NoTypeInformation
+            ## Try ImportExcel
+            try {
 
-            "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: No results to output from Get-CurrentUser." | Out-File -FilePath "$outputfile.csv"
+                Import-Module ImportExcel
 
-            Invoke-Item "$outputfile.csv"
+                $params = @{
+                    AutoSize             = $true
+                    TitleBackgroundColor = 'Blue'
+                    TableName            = $str_title_var
+                    TableStyle           = 'Medium9' # => Here you can chosse the Style you like the most
+                    BoldTopRow           = $true
+                    WorksheetName        = $str_title_var
+                    PassThru             = $true
+                    Path                 = "$Outputfile.xlsx" # => Define where to save it here!
+                }
+                $Content = Import-Csv "$Outputfile.csv"
+                $xlsx = $Content | Export-Excel @params
+                $ws = $xlsx.Workbook.Worksheets[$params.Worksheetname]
+                $ws.View.ShowGridLines = $false # => This will hide the GridLines on your file
+                Close-ExcelPackage $xlsx
+            }
+            catch {
+                Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: ImportExcel module not found, skipping xlsx creation." -Foregroundcolor Yellow
+            }
+            ## Try opening directory (that might contain xlsx and csv reports), default to opening csv which should always exist
+            try {
+                Invoke-item "$($outputfile | split-path -Parent)"
+            }
+            catch {
+                # Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Could not open output folder." -Foregroundcolor Yellow
+                Invoke-item "$outputfile.csv"
+            }
         }
-        # read-host "Press enter to return results."
-        return $results
-
-
     }
+    else {
+        Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: No results to output."
+
+        "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: No results to output from Get-CurrentUser." | Out-File -FilePath "$outputfile.csv"
+
+        Invoke-Item "$outputfile.csv"
+    }
+    # read-host "Press enter to return results."
+    return $results
 }

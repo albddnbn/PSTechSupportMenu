@@ -46,12 +46,10 @@ function Get-ConnectedPrinters {
     ## 1. Handle Targetcomputer input if it's not supplied through pipeline.
     ## 2. Create output filepath if necessary.
     ## 3. Scriptblock that is executed on each target computer to retrieve connected printer info.
-    $thedate = Get-Date -Format 'yyyy-MM-dd'
-
     ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
     $ComputerName = Get-Targets -TargetComputer $ComputerName
     ## Ping Test for Connectivity:
-    $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
+    # $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
      
         
     ## 2. Outputfile handling - either create default, create filenames using input, or skip creation if $outputfile = 'n'.
@@ -93,7 +91,10 @@ function Get-ConnectedPrinters {
     }
 
     ## Create empty results container to use during process block
-    $results = Invoke-Command -ComputerName $ComputerName -Scriptblock $list_local_printers_block | Select PSComputerName, * -ExcludeProperty RunspaceId, PSshowcomputername -ErrorAction SilentlyContinue
+    $results = Invoke-Command -ComputerName $ComputerName -Scriptblock $list_local_printers_block | Select PSComputerName, * -ExcludeProperty RunspaceId, PSshowcomputername -ErrorVariable RemoteError
+
+    ## errored out invoke-commands:
+    $errored_machines = $RemoteError.CategoryInfo.TargetName
 
     ## 1. If there are results - sort them by the hostname (pscomputername) property.
     ## 2. If the user specified 'n' for outputfile - just output to terminal or gridview.
@@ -108,6 +109,9 @@ function Get-ConnectedPrinters {
         else {
             ## 3. Create .csv/.xlsx reports if possible
             $results | Export-Csv -Path "$outputfile.csv" -NoTypeInformation
+            "These machines errored out:`r" | Out-File -FilePath "$outputfile-Errors.csv"
+            $errored_machines | Out-File -FilePath "$outputfile-Errors.csv" -Append
+            
             ## Try ImportExcel
             try {
                 $params = @{

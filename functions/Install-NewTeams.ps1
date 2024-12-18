@@ -40,59 +40,12 @@ Function Install-NewTeams {
         [string]$skip_occupied_computers = 'y'
     )
     ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
-    if ($null -eq $ComputerName) {
-        Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected pipeline input for targetcomputer." -Foregroundcolor Yellow
-    }
-    else {
-        ## Assigns localhost value
-        if ($ComputerName -in @('', '127.0.0.1', 'localhost')) {
-            $ComputerName = @('127.0.0.1')
-        }
-        ## If input is a file, gets content
-        elseif ($(Test-Path $ComputerName -erroraction SilentlyContinue) -and ($ComputerName.count -eq 1)) {
-            $ComputerName = Get-Content $ComputerName
-        }
-        ## A. Separates any comma-separated strings into an array, otherwise just creates array
-        ## B. Then, cycles through the array to process each hostname/hostname substring using LDAP query
-        else {
-            ## A.
-            if ($ComputerName -like "*,*") {
-                $ComputerName = $ComputerName -split ','
-            }
-            else {
-                $ComputerName = @($ComputerName)
-            }
-        
-            ## B. LDAP query each TargetComputer item, create new list / sets back to Targetcomputer when done.
-            $NewTargetComputer = [System.Collections.Arraylist]::new()
-            foreach ($computer in $ComputerName) {
-                ## CREDITS FOR The code this was adapted from: https://intunedrivemapping.azurewebsites.net/DriveMapping
-                if ([string]::IsNullOrEmpty($env:USERDNSDOMAIN) -and [string]::IsNullOrEmpty($searchRoot)) {
-                    Write-Error "LDAP query `$env:USERDNSDOMAIN is not available!"
-                    Write-Warning "You can override your AD Domain in the `$overrideUserDnsDomain variable"
-                }
-                else {
-        
-                    # if no domain specified fallback to PowerShell environment variable
-                    if ([string]::IsNullOrEmpty($searchRoot)) {
-                        $searchRoot = $env:USERDNSDOMAIN
-                    }
+    $ComputerName = Get-Targets -TargetComputer $ComputerName
 
-                    $matching_hostnames = (([adsisearcher]"(&(objectCategory=Computer)(name=$computer*))").findall()).properties
-                    $matching_hostnames = $matching_hostnames.name
-                    $NewTargetComputer += $matching_hostnames
-                }
-            }
-            $ComputerName = $NewTargetComputer
-        }
-        $ComputerName = $ComputerName | Where-object { $_ -ne $null } | Select -Unique
-        # Safety catch
-        if ($null -eq $ComputerName) {
-            return
-        }
-    }
+    ## Ping Test for Connectivity:
+    # $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
+    $ComputerName = Test-Connectivity -ComputerName $ComputerName
 
-        
     # $skip_occupied_computers = Read-Host "Install of Teams will stop any running teams processes on target machines - skip computers that have users logged in? [y/n]"
     # get newteams folder from irregular applications
     $NewTeamsFolder = Get-ChildItem -Path "$env:PSMENU_DIR\deploy\irregular" -Filter 'NewTeams' -Directory -ErrorAction SilentlyContinue

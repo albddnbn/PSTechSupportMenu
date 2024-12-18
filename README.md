@@ -3,4 +3,4 @@
 
 ## Currently 'under construction' with goal of simplifying functions and creating a module (if there's a point) from:
 
-<a href="">https://github.com/albddnbn/PSTerminalMenu</a>
+<a href="https://github.com/albddnbn/PSTerminalMenu">https://github.com/albddnbn/PSTerminalMenu</a>

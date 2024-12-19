@@ -20,6 +20,10 @@ function Scan-SoftwareInventory {
         Comma-separated list.
         Optional parameter to specify a list of applications/strings to look for. If not specified, all applications are scanned.
 
+    .PARAMETER SendPings
+        'y' = Ping test for connectivity before attempting main purpose of function.
+        Anything else - will not conduct the ping test.
+
     .EXAMPLE
         Scan-SoftwareInventory -TargetComputer "t-client-28" -Title "tclient-28-details"
 
@@ -37,7 +41,8 @@ function Scan-SoftwareInventory {
         [Parameter(
             Mandatory = $true)]
         [string]$OutputFile,
-        $AppsToLookFor
+        $AppsToLookFor,
+        $SendPings
     )
     ## 1. Define title, date variables
     ## 2. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
@@ -47,16 +52,14 @@ function Scan-SoftwareInventory {
     if ($AppsToLookFor -isnot [array]) {
         $AppsToLookFor = @($AppsToLookFor)
     }
-
-    ## 1. Define title, date variables
-    $thedate = Get-Date -Format 'yyyy-MM-dd'
     ## 2. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
 
     $ComputerName = Get-Targets -TargetComputer $ComputerName
 
     ## Ping Test for Connectivity:
-    $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
-        
+    if ($SendPings -eq 'y') {
+        $ComputerName = Test-Connectivity -ComputerName $ComputerName
+    }        
     ## 3. Outputfile handling - either create default, create filenames using input, or skip creation if $outputfile = 'n'.
     $str_title_var = "SoftwareScan"
 

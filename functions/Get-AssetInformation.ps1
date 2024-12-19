@@ -17,6 +17,10 @@ function Get-AssetInformation {
         Entering anything else will create an output file in the 'reports' directory, in a folder with name based on function name, and OutputFile input.
         Ex: Outputfile = 'A220', output file(s) will be in $env:PSMENU_DIR\reports\AssetInfo - A220\
 
+    .PARAMETER SendPings
+        'y' = Ping test for connectivity before attempting main purpose of function.
+        Anything else - will not conduct the ping test.
+
     .INPUTS
         [String[]] - an array of hostnames can be submitted through pipeline for Targetcomputer parameter.
 
@@ -41,7 +45,8 @@ function Get-AssetInformation {
             Mandatory = $true
         )]
         $ComputerName,
-        [string]$Outputfile
+        [string]$Outputfile,
+        $SendPings
     )
     ## 1. Handling TargetComputer input if not supplied through pipeline.
     ## 2. Outputfile handling - either create default, create filenames using input, or skip creation if $outputfile = 'n'.

@@ -18,6 +18,10 @@ Function Remove-TeamsClassic {
         'y' will skip any computers that are occupied by a user.
         'n' will attempt to remove Teams Classic from all computers, including those with users logged in.
 
+    .PARAMETER SendPings
+        'y' = Ping test for connectivity before attempting main purpose of function.
+        Anything else - will not conduct the ping test.
+
     .EXAMPLE
         Remove Microsoft Teams Classic from all computers that have hostnames starting with 't-computer-'
         Remove-TeamsClassic -TargetComputer 't-computer-' -DoNotDisturbUsers 'y'
@@ -35,7 +39,8 @@ Function Remove-TeamsClassic {
         [Parameter(
             Mandatory = $true        
         )]
-        [string]$DoNotDisturbUsers
+        [string]$DoNotDisturbUsers,
+        $SendPings
     )
     ## 1. Handling of TargetComputer input
     ## 2. ask to skip occupied computers

@@ -17,6 +17,10 @@ function Get-ComputerDetails {
         Entering anything else will create an output file in the 'reports' directory, in a folder with name based on function name, and OutputFile input.
         Ex: Outputfile = 'A220-Info', output file(s) will be in the $env:PSMENU_DIR\reports\2023-11-1\A220-Info\ directory.
 
+    .PARAMETER SendPings
+        'y' = Ping test for connectivity before attempting main purpose of function.
+        Anything else - will not conduct the ping test.
+
     .INPUTS
         [String[]] - an array of hostnames can be submitted through pipeline for Targetcomputer parameter.
 
@@ -42,7 +46,8 @@ function Get-ComputerDetails {
             Mandatory = $true
         )]
         $ComputerName,
-        [string]$Outputfile
+        [string]$Outputfile,
+        $SendPings
     )
 
     $ComputerName = Get-Targets -TargetComputer $ComputerName

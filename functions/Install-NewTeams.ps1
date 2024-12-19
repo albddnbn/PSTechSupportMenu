@@ -14,6 +14,10 @@ Function Install-NewTeams {
         First section of a hostname to generate a list, ex: g-labpc- will create a list of all hostnames that start with 
         g-labpc- (g-labpc-01. g-labpc-02, g-labpc-03..).
 
+    .PARAMETER SendPings
+        'y' = Ping test for connectivity before attempting main purpose of function.
+        Anything else - will not conduct the ping test.
+
     .PARAMETER skip_occupied_computers
         This script KILLS ANY RUNNING TEAMS PROCESSES.
         'y' will skip computers that have users logged in, 'n' will not skip them.
@@ -37,7 +41,8 @@ Function Install-NewTeams {
             Mandatory = $true
         )]
         $ComputerName,
-        [string]$skip_occupied_computers = 'y'
+        [string]$skip_occupied_computers = 'y',
+        $SendPings
     )
     ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
     $ComputerName = Get-Targets -TargetComputer $ComputerName

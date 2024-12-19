@@ -19,6 +19,10 @@ function Install-VeyonRoom {
     .PARAMETER Master_Computer
         The name of the master computer, Veyon installation is run without the /NoMaster switch on this computer.
 
+    .PARAMETER SendPings
+        'y' = Ping test for connectivity before attempting main purpose of function.
+        Anything else - will not conduct the ping test.
+
     .NOTES
         ---
         Author: albddnbn (Alex B.)
@@ -32,7 +36,8 @@ function Install-VeyonRoom {
         $ComputerName,
         [string]$RoomName,
         # comma-separated list of computers that get Veyon master installation.
-        [string]$Master_Computer
+        [string]$Master_Computer,
+        $SendPings
     )
     ## 1. Handling TargetComputer input if not supplied through pipeline.
     ## 2. Create list of master computers from $Master_computer parameter

@@ -18,6 +18,10 @@ function Add-PrinterLogicPrinter {
         Name of the printer in printerlogic. Ex: 't-prt-lib-01', you can use the name or the full 'path' to the printer, ex: 'STANTON\B WING..\s-prt-b220-01'
         Name must match the exact 'name' of the printer, as listed in PrinterLogic.
 
+    .PARAMETER SendPings
+        'y' = Ping test for connectivity before attempting main purpose of function.
+        Anything else - will not conduct the ping test.
+
     .INPUTS
         [String[]] - an array of hostnames can be submitted through pipeline for Targetcomputer parameter.
 
@@ -48,7 +52,8 @@ function Add-PrinterLogicPrinter {
             Mandatory = $true, ValueFromPipeline = $true
         )]
         [String[]]$ComputerName,
-        [string]$PrinterName
+        [string]$PrinterName,
+        $SendPings
     )
     ## 1. TargetComputer handling if not supplied through pipeline
     ## 2. Scriptblock to connect to printerlogic printer

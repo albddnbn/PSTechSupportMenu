@@ -12,12 +12,6 @@ function Scan-ForAppOrFilePath {
         Path to text file containing one hostname per line, ex: 'D:\computers.txt'
         First section of a hostname to generate a list, ex: t-pc-0 will create a list of all hostnames that start with t-pc-0. (Possibly t-pc-01, t-pc-02, t-pc-03, etc.)
 
-    .PARAMETER SearchType
-        The type of search to perform. 
-        This can be either 'app' or 'path'. 
-        If 'app' is specified, the script will search for the specified application in the registry. 
-        If 'path' is specified, the script will search for the specified file/folder path on the target's filesystem.
-
     .PARAMETER Item
         The item to search for. 
         If the -SearchType 'app' argument is used, this should be the application's DisplayName. 
@@ -25,6 +19,16 @@ function Scan-ForAppOrFilePath {
 
     .PARAMETER OutputFile
         Used to create the output filename/path if supplied.
+
+    .PARAMETER SearchType
+        The type of search to perform. 
+        This can be either 'app' or 'path'. 
+        If 'app' is specified, the script will search for the specified application in the registry. 
+        If 'path' is specified, the script will search for the specified file/folder path on the target's filesystem.
+
+    .PARAMETER SendPings
+        'y' = Ping test for connectivity before attempting main purpose of function.
+        Anything else - will not conduct the ping test.
 
     .EXAMPLE
         Scan-ForAppOrFilePath -ComputerList 't-client-01' -SearchType 'app' -Item 'Microsoft Teams' -outputfile 'teams'
@@ -45,7 +49,8 @@ function Scan-ForAppOrFilePath {
         [String]$SearchType,
         [Parameter(Mandatory = $true)]
         [String]$Item,
-        [String]$Outputfile
+        [String]$Outputfile,
+        $SendPings
     )
     ## 1. Set date
     ## 2. Handle targetcomputer if not submitted through pipeline

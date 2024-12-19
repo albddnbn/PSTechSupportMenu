@@ -24,6 +24,10 @@ function Send-Files {
         First section of a hostname to generate a list, ex: g-labpc- will create a list of all hostnames that start with 
         g-labpc- (g-labpc-01. g-labpc-02, g-labpc-03..).
 
+    .PARAMETER SendPings
+        'y' = Ping test for connectivity before attempting main purpose of function.
+        Anything else - will not conduct the ping test.
+
     .EXAMPLE
         copy the test.txt file to all computers in stanton open lab
         Send-Files -sourcepath "C:\Users\Public\Desktop\test.txt" -destinationpath "Users\Public\Desktop" -targetcomputer "t-client-"
@@ -51,7 +55,8 @@ function Send-Files {
                 }
             })]
         [string]$sourcepath,
-        [string]$destinationpath
+        [string]$destinationpath,
+        $SendPings
     )
     ## 1. Handle Targetcomputer input if it's not supplied through pipeline.
     ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
@@ -59,8 +64,9 @@ function Send-Files {
     $ComputerName = Get-Targets -TargetComputer $ComputerName
 
     ## Ping Test for Connectivity:
-    $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
-        
+    if ($SendPings -eq 'y') {
+        $ComputerName = Test-Connectivity -ComputerName $ComputerName
+    }        
 
     $informational_string = ""
 

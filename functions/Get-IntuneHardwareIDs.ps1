@@ -24,6 +24,10 @@ Function Get-IntuneHardwareIDs {
         Used to create the name of the output .csv file, output to local computer.
         If not supplied, an output filepath will be created using formatted string.
 
+    .PARAMETER SendPings
+        'y' = Ping test for connectivity before attempting main purpose of function.
+        Anything else - will not conduct the ping test.
+
     .INPUTS
         [String[]] - an array of hostnames can be submitted through pipeline for Targetcomputer parameter.
 
@@ -51,7 +55,8 @@ Function Get-IntuneHardwareIDs {
         )]
         $ComputerName,
         [string]$Outputfile,
-        [string]$DeviceGroupTag
+        [string]$DeviceGroupTag,
+        $SendPings
     )
     ## 1. Set date and report directory variables.
     ## 2. Handle Targetcomputer input if it's not supplied through pipeline.
@@ -62,8 +67,9 @@ Function Get-IntuneHardwareIDs {
     $ComputerName = Get-Targets -TargetComputer $ComputerName
 
     ## Ping Test for Connectivity:
-    $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
-    
+    if ($SendPings -eq 'y') {
+        $ComputerName = Test-Connectivity -ComputerName $ComputerName
+    }    
     ## 3. Outputfile handling - either create default, create filenames using input, or skip creation if $outputfile = 'n'.
     $str_title_var = "IntuneHardwareIDs"
     if ($Outputfile.tolower() -eq 'n') {

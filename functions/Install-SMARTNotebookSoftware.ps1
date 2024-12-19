@@ -13,6 +13,10 @@ function Install-SMARTNotebookSoftware {
         Path to text file containing one hostname per line, ex: 'D:\computers.txt'
         First section of a hostname to generate a list, ex: t-pc-0 will create a list of all hostnames that start with t-pc-0. (Possibly t-pc-01, t-pc-02, t-pc-03, etc.)
 
+    .PARAMETER SendPings
+        'y' = Ping test for connectivity before attempting main purpose of function.
+        Anything else - will not conduct the ping test.
+
     .EXAMPLE
         Install-SMARTNotebookSoftware -TargetComputer "s-c136-02"
 
@@ -26,7 +30,8 @@ function Install-SMARTNotebookSoftware {
         [Parameter(
             Mandatory = $true
         )]
-        $ComputerName
+        $ComputerName,
+        $SendPings
     )
     ## 1. Handling TargetComputer input if not supplied through pipeline.
     ## 2. Make sure SMARTNotebook folder is in ./deploy/irregular

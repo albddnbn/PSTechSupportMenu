@@ -19,6 +19,10 @@ function Get-ConnectedPrinters {
 
     .PARAMETER FolderTitleSubstring
         If specified, the function will create a folder in the 'reports' directory with the specified substring in the title, appended to the $REPORT_DIRECTORY String (relates to the function title).
+
+    .PARAMETER SendPings
+        'y' = Ping test for connectivity before attempting main purpose of function.
+        Anything else - will not conduct the ping test.
     
     .INPUTS
         [String[]] - an array of hostnames can be submitted through pipeline for Targetcomputer parameter.
@@ -40,7 +44,8 @@ function Get-ConnectedPrinters {
             Mandatory = $true
         )]
         $ComputerName,
-        [string]$Outputfile
+        [string]$Outputfile,
+        $SendPings
     )
 
     ## 1. Handle Targetcomputer input if it's not supplied through pipeline.

@@ -32,7 +32,9 @@ function Install-SMARTNotebookSoftware {
     ## 2. Make sure SMARTNotebook folder is in ./deploy/irregular
     ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
     $ComputerName = Get-Targets -TargetComputer $ComputerName
-    $ComputerName = Test-Connectivity -ComputerName $ComputerName
+    if ($SendPings -eq 'y') {
+        $ComputerName = Test-Connectivity -ComputerName $ComputerName
+    }
 
     ## 2. Get the smartnotebook folder from irregular applications
     $SmartNotebookFolder = Get-ChildItem -path "$env:PSMENU_DIR\deploy\irregular" -Filter 'SMARTNotebook' -Directory -Erroraction SilentlyContinue

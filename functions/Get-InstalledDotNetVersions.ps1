@@ -77,7 +77,7 @@ function Get-InstalledDotNetversions {
             Get-ItemProperty -Name version -EA 0 | Where { $_.PSChildName -Match '^(?!S)\p{L}' } |`
             Select PSChildName, version
 
-    } -ErrorVariable RemoteError | Select PSComputerName, * -ExcludeProperty RunspaceId, PSshowcomputername -ErrorAction SilentlyContinue
+    } -ErrorVariable RemoteError | Select * -ExcludeProperty RunspaceId, PSshowcomputername
 
     $errored_machines = $RemoteError.CategoryInfo.TargetName
 

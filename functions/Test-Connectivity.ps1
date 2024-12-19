@@ -1,4 +1,4 @@
-function Test-ConnectivityQuick {
+function Test-Connectivity {
     <#
     .SYNOPSIS
         Tests connectivity to a single computer or list of computers by using Test-Connection -Quiet.

@@ -53,7 +53,9 @@ function Get-CurrentUser {
     $ComputerName = Get-Targets -TargetComputer $ComputerName
 
     ## Ping Test for Connectivity:
-    # $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
+    if ($SendPings -eq 'y') {
+        $ComputerName = Test-Connectivity -ComputerName $ComputerName
+    }
 
     ## 2. Outputfile handling - either create default, create filenames using input, or skip creation if $outputfile = 'n'.
     $str_title_var = "CurrentUsers"
@@ -82,7 +84,7 @@ function Get-CurrentUser {
 
         }
         $obj
-    } -ErrorVariable RemoteError | Select PSComputerName, * -ExcludeProperty RunspaceId, PSshowcomputername -ErrorAction SilentlyContinue
+    } -ErrorVariable RemoteError | Select * -ExcludeProperty RunspaceId, PSshowcomputername
     
     $errored_machines = $RemoteError.CategoryInfo.TargetName
 

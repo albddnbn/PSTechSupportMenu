@@ -38,7 +38,9 @@ function Install-VeyonRoom {
     ## 2. Create list of master computers from $Master_computer parameter
     ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
     $ComputerName = Get-Targets -TargetComputer $ComputerName
-    $ComputerName = Test-Connectivity -ComputerName $ComputerName
+    if ($SendPings -eq 'y') {
+        $ComputerName = Test-Connectivity -ComputerName $ComputerName
+    }
 
     ## 2. Creating list of master computers, trim whitespace
     $master_computer_selection = $($Master_Computers -split ',')

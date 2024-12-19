@@ -49,7 +49,9 @@ function Get-ConnectedPrinters {
     ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
     $ComputerName = Get-Targets -TargetComputer $ComputerName
     ## Ping Test for Connectivity:
-    # $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
+    if ($SendPings -eq 'y') {
+        $ComputerName = Test-Connectivity -ComputerName $ComputerName
+    }
      
         
     ## 2. Outputfile handling - either create default, create filenames using input, or skip creation if $outputfile = 'n'.
@@ -91,7 +93,7 @@ function Get-ConnectedPrinters {
     }
 
     ## Create empty results container to use during process block
-    $results = Invoke-Command -ComputerName $ComputerName -Scriptblock $list_local_printers_block | Select PSComputerName, * -ExcludeProperty RunspaceId, PSshowcomputername -ErrorVariable RemoteError
+    $results = Invoke-Command -ComputerName $ComputerName -Scriptblock $list_local_printers_block  -ErrorVariable RemoteError | Select * -ExcludeProperty RunspaceId, PSshowcomputername
 
     ## errored out invoke-commands:
     $errored_machines = $RemoteError.CategoryInfo.TargetName

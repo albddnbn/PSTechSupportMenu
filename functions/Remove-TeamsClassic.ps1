@@ -44,7 +44,9 @@ Function Remove-TeamsClassic {
     $ComputerName = Get-Targets -TargetComputer $ComputerName
 
     ## Ping Test for Connectivity:
-    $ComputerName = Test-Connectivity -ComputerName $ComputerName
+    if ($SendPings -eq 'y') {
+        $ComputerName = Test-Connectivity -ComputerName $ComputerName
+    }
         
 
     ## 2. Ask to skip occupied computers

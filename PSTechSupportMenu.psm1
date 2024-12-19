@@ -237,8 +237,6 @@ function PSTechSupportMenu {
 
                 $splat.Add($parameter, $value)
             }
-            Write-Host "Splat keys: $($splat.keys)"
-            Write-Host "Current splat is: $($splat.values)"
 
             $splat_String = $splat.getenumerator() | % { "-$($_.name) $($_.value) " }
 
@@ -310,7 +308,7 @@ function PSTechSupportMenu {
         $key = $Host.UI.RawUI.ReadKey()
         [String]$character = $key.Character
         if ($($character.ToLower()) -eq 'x') {
-            exit
+            return
         }
         elseif ($($character.ToLower()) -eq '') {
             continue

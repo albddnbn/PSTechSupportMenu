@@ -50,7 +50,9 @@ function Get-AssetInformation {
     $ComputerName = Get-Targets -TargetComputer $ComputerName
 
     ## Ping Test for Connectivity:
-    # $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
+    if ($SendPings -eq 'y') {
+        $ComputerName = Test-Connectivity -ComputerName $ComputerName
+    }
    
     ## 2. Outputfile handling - either create default, create filenames using input, or skip creation if $outputfile = 'n'.
     $str_title_var = "AssetInfo"
@@ -114,8 +116,7 @@ function Get-AssetInformation {
         return $obj
     }
 
-    $results = Invoke-Command -ComputerName $ComputerName -ScriptBlock $asset_info_scriptblock -ErrorVariable RemoteError `
-    | Select PSComputerName, * -ExcludeProperty RunspaceId, PSshowcomputername
+    $results = Invoke-Command -ComputerName $ComputerName -ScriptBlock $asset_info_scriptblock -ErrorVariable RemoteError | Select * -ExcludeProperty RunspaceId, PSshowcomputername
 
     ## errored out invoke-commands:
     $errored_machines = $RemoteError.CategoryInfo.TargetName

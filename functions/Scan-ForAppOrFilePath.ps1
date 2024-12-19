@@ -56,7 +56,9 @@ function Scan-ForAppOrFilePath {
     $ComputerName = Get-Targets -TargetComputer $ComputerName
 
     ## Ping Test for Connectivity:
-    $ComputerName = Test-Connectivity -ComputerName $ComputerName
+    if ($SendPings -eq 'y') {
+        $ComputerName = Test-Connectivity -ComputerName $ComputerName
+    }
         
 
     ## 3. Outputfile handling - either create default, create filenames using input - report files are mandatory 
@@ -118,7 +120,8 @@ function Scan-ForAppOrFilePath {
                 $obj.PathPresent = "Filepath not found"
             }
             $obj
-        }  | Select PSComputerName, * -ExcludeProperty RunspaceId, PSshowcomputername -ErrorAction SilentlyContinue
+        } -ErrorVariable RemoteError | Select * -ExcludeProperty RunspaceId, PSshowcomputername
+    
     }
     ## Application search
     elseif ($SearchType -eq 'App') {
@@ -176,15 +179,20 @@ function Scan-ForAppOrFilePath {
                 }
                 $obj
             }
-        } | Select PSComputerName, * -ExcludeProperty RunspaceId, PSShowComputerName -ErrorAction SilentlyContinue
+        } -ErrorVariable RemoteError | Select * -ExcludeProperty RunspaceId, PSshowcomputername
 
         # $search_result
         # read-host "enter"
     }
+
+    ## errored out invoke-commands:
+    $errored_machines = $RemoteError.CategoryInfo.TargetName
  
     ## 1. Output findings (if any) to report files or terminal
     if ($results) {
         $results | Export-Csv -Path "$outputfile.csv" -NoTypeInformation
+        "These machines errored out:`r" | Out-File -FilePath "$outputfile-Errors.csv"
+        $errored_machines | Out-File -FilePath "$outputfile-Errors.csv" -Append      
         ## Try ImportExcel
         try {
             ## xlsx attempt:

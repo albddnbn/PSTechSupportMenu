@@ -46,8 +46,6 @@ function Ping-TestReport {
     ## 4. Create arraylist to store results
 
     $ComputerName = Get-Targets -TargetComputer $ComputerName
-    $ComputerName = Test-Connectivity -ComputerName $ComputerName
-
 
     ## 1. Set date and AM / PM variables
     $am_pm = (Get-Date).ToString('tt')

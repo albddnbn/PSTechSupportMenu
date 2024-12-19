@@ -55,51 +55,52 @@ function Add-PrinterLogicPrinter {
     ## 3. Results containers for overall results and skipped computers.
     $ComputerName = Get-Targets -TargetComputer $ComputerName
 
-
-
+    if ($SendPings -eq 'y') {
+        $ComputerName = Test-Connectivity -ComputerName $ComputerName
+    }
 
     $thedate = Get-Date -Format 'yyyy-MM-dd'
 
         
-        ## 2. Define the scriptblock that connects machine to target printer in printerlogic cloud instance
-        $connect_to_printer_block = {
-            param(
-                $printer_name
-            )
+    ## 2. Define the scriptblock that connects machine to target printer in printerlogic cloud instance
+    $connect_to_printer_block = {
+        param(
+            $printer_name
+        )
 
-            $obj = [pscustomobject]@{
-                hostname       = $env:COMPUTERNAME
-                printer        = $printer_name
-                connectstatus  = 'NO'
-                clientsoftware = 'NO'
-            }
-            # get installerconsole.exe
-            $exepath = get-childitem -path "C:\Program Files (x86)\Printer Properties Pro\Printer Installer Client\bin" -Filter "PrinterInstallerConsole.exe" -File -Erroraction SilentlyContinue
-            if (-not $exepath) {
-                Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] [$env:COMPUTERNAME] :: PrinterLogic PrinterInstallerConsole.exe was not found in C:\Program Files (x86)\Printer Properties Pro\Printer Installer Client\bin." -Foregroundcolor Red
-                return $obj
-            }
-        
-            $obj.clientsoftware = 'YES'
-        
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] [$env:COMPUTERNAME] :: Found $($exepath.fullname), mapping $printer_name now..."
-            $map_result = (Start-Process "$($exepath.fullname)" -Argumentlist "InstallPrinter=$printer_name" -Wait -Passthru).ExitCode
-        
-            # 0 = good, 1 = bad
-            if ($map_result -eq 0) {
-                Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] [$env:COMPUTERNAME] :: Connected to $printer_name successfully." -Foregroundcolor Green
-                # Write-Host "*Remember that this script does not set default printer, user has to do that themselves."
-                $obj.connectstatus = 'YES'
-                return $obj
-            }
-            else {
-                Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] [$env:COMPUTERNAME] :: failed to connect to $printer_name." -Foregroundcolor Red
-                return $obj
-            }
+        $obj = [pscustomobject]@{
+            hostname       = $env:COMPUTERNAME
+            printer        = $printer_name
+            connectstatus  = 'NO'
+            clientsoftware = 'NO'
         }
+        # get installerconsole.exe
+        $exepath = get-childitem -path "C:\Program Files (x86)\Printer Properties Pro\Printer Installer Client\bin" -Filter "PrinterInstallerConsole.exe" -File -Erroraction SilentlyContinue
+        if (-not $exepath) {
+            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] [$env:COMPUTERNAME] :: PrinterLogic PrinterInstallerConsole.exe was not found in C:\Program Files (x86)\Printer Properties Pro\Printer Installer Client\bin." -Foregroundcolor Red
+            return $obj
+        }
+        
+        $obj.clientsoftware = 'YES'
+        
+        Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] [$env:COMPUTERNAME] :: Found $($exepath.fullname), mapping $printer_name now..."
+        $map_result = (Start-Process "$($exepath.fullname)" -Argumentlist "InstallPrinter=$printer_name" -Wait -Passthru).ExitCode
+        
+        # 0 = good, 1 = bad
+        if ($map_result -eq 0) {
+            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] [$env:COMPUTERNAME] :: Connected to $printer_name successfully." -Foregroundcolor Green
+            # Write-Host "*Remember that this script does not set default printer, user has to do that themselves."
+            $obj.connectstatus = 'YES'
+            return $obj
+        }
+        else {
+            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] [$env:COMPUTERNAME] :: failed to connect to $printer_name." -Foregroundcolor Red
+            return $obj
+        }
+    }
 
 
-        $results = Invoke-Command -ComputerName $single_computer -scriptblock $connect_to_printer_block -ArgumentList $PrinterName -ErrorVariable RemoteError 
+    $results = Invoke-Command -ComputerName $single_computer -scriptblock $connect_to_printer_block -ArgumentList $PrinterName -ErrorVariable RemoteError 
 
     ## errored out invoke-commands:
     $errored_machines = $RemoteError.CategoryInfo.TargetName
@@ -111,28 +112,28 @@ function Add-PrinterLogicPrinter {
     ## 1. If there are any results - output to file
     ## 2. Output missed computers to terminal.
     ## 3. Return results arraylist
-        ## 1.
-        if ($results) {
+    ## 1.
+    if ($results) {
 
-            $results | out-gridview -Title "PrinterLogic Connect Results"
+        $results | out-gridview -Title "PrinterLogic Connect Results"
 
-        }
-        else {
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: No results to output."
+    }
+    else {
+        Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: No results to output."
 
-            "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: No results to output." | Out-File -FilePath "$env:PSMENU_DIR\reports\PrinterLogicConnectResults_$thedate.txt" -Append
-            "These computers did not respond to ping:" | Out-File -FilePath "$env:PSMENU_DIR\reports\PrinterLogicConnectResults_$thedate.txt" -Append
-            $errored_machines | Out-File -FilePath "$env:PSMENU_DIR\reports\PrinterLogicConnectResults_$thedate.txt" -Append
+        "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: No results to output." | Out-File -FilePath "$env:PSMENU_DIR\reports\PrinterLogicConnectResults_$thedate.txt" -Append
+        "These computers did not respond to ping:" | Out-File -FilePath "$env:PSMENU_DIR\reports\PrinterLogicConnectResults_$thedate.txt" -Append
+        $errored_machines | Out-File -FilePath "$env:PSMENU_DIR\reports\PrinterLogicConnectResults_$thedate.txt" -Append
 
-            Invoke-Item "$env:PSMENU_DIR\reports\PrinterLogicConnectResults_$thedate.txt"
-        }
-        ## 2. Output unresponsive computers
-        Write-Host "These computers did not respond to ping:"
-        Write-Host ""
-        $errored_machines
-        Write-Host ""
-        # read-host "Press enter to return results."
+        Invoke-Item "$env:PSMENU_DIR\reports\PrinterLogicConnectResults_$thedate.txt"
+    }
+    ## 2. Output unresponsive computers
+    Write-Host "These computers did not respond to ping:"
+    Write-Host ""
+    $errored_machines
+    Write-Host ""
+    # read-host "Press enter to return results."
 
-        ## 3. return results arraylist
-        return $results
+    ## 3. return results arraylist
+    return $results
 }

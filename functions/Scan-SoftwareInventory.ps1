@@ -137,13 +137,20 @@ function Scan-SoftwareInventory {
                 }        
             }
         } 
-    } | Select PSComputerName, * -ExcludeProperty RunspaceId, PSshowcomputername -ErrorAction SilentlyContinue
+    } -ErrorVariable RemoteError | Select * -ExcludeProperty RunspaceId, PSshowcomputername
+
+    $errored_machines = $RemoteError.CategoryInfo.TargetName
 
     ## 1. Get list of unique computer names from results - use it to sort through all results to create a list of apps for 
     ##    a specific computer, output apps to report, then move on to next iteration of loop.
     if ($results) {
         ## 1. get list of UNIQUE pscomputername s from the results - a file needs to be created for EACH computer.
         $unique_hostnames = $($results.pscomputername) | select -Unique
+
+        if ($errored_machines) {
+            Write-Host "These machines errored out during Invoke-Command." -ForegroundColor Red
+            $errored_machines
+        }
 
         ForEach ($single_computer_name in $unique_hostnames) {
             # get that computers apps

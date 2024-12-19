@@ -43,8 +43,9 @@ Function Install-NewTeams {
     $ComputerName = Get-Targets -TargetComputer $ComputerName
 
     ## Ping Test for Connectivity:
-    # $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
-    $ComputerName = Test-Connectivity -ComputerName $ComputerName
+    if ($SendPings -eq 'y') {
+        $ComputerName = Test-Connectivity -ComputerName $ComputerName
+    }
 
     # $skip_occupied_computers = Read-Host "Install of Teams will stop any running teams processes on target machines - skip computers that have users logged in? [y/n]"
     # get newteams folder from irregular applications

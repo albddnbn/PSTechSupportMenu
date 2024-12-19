@@ -48,8 +48,9 @@ function Get-ComputerDetails {
     $ComputerName = Get-Targets -TargetComputer $ComputerName
 
     ## Ping Test for Connectivity:
-    # $ComputerName = $ComputerName | Where-Object { Test-Connection -ComputerName $_ -Count 1 -Quiet }
-    $ComputerName = Test-Connectivity -ComputerName $ComputerName
+    if ($SendPings -eq 'y') {
+        $ComputerName = Test-Connectivity -ComputerName $ComputerName
+    }
 
 
     $str_title_var = "PCdetails"
@@ -92,7 +93,7 @@ function Get-ComputerDetails {
             SystemUptime    = $uptime
         }
         $obj
-    } -ErrorVariable RemoteError | Select PSComputerName, * -ExcludeProperty RunspaceId, PSshowcomputername -ErrorAction SilentlyContinue
+    } -ErrorVariable RemoteError | Select * -ExcludeProperty RunspaceId, PSshowcomputername -ErrorAction SilentlyContinue
 
     ## errored out invoke-commands:
     $errored_machines = $RemoteError.CategoryInfo.TargetName

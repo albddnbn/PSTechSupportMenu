@@ -102,10 +102,17 @@ function PSTechSupportMenu {
     ## Import modules / functions
     get-childitem modules | % { ipmo "$($_.fullname)" }
 
-    $modules_csv = Import-CSV ./config/modules.csv
+    # $modules_csv = Import-CSV ./config/modules.csv
 
-    $modules_csv | % { install-module "$($_.module)" -confirm:$false }
-    $modules_csv | % { ipmo "$($_.module)" }
+    # $modules_csv | % {
+    #     try {
+    #         install-module "$($_.module)"
+    #     }
+    #     catch {
+    #         Write-Host "Error installing module: $($_.module)" -ForegroundColor Red
+    #     }
+    # }
+    # $modules_csv | % { ipmo "$($_.module)" }
 
     ## JOB FUNCTIONS - if a function shouldn't give the option to be run as a background job - it should be specified in the config.json file.
     ## Add the function name to the 'notjobfunctions' array in the config.json file.
@@ -146,7 +153,11 @@ function PSTechSupportMenu {
             # $function_list = Get-ChildItem -Path "$env:PSMENU_DIR\functions" -Filter "*$search_term*.ps1" -File -ErrorAction SilentlyContinue | Select -Exp BaseName
 
             $function_list = Get-ChildItem ./Modules | % { gcm -module $_ } | Select -Exp Name
-            $function_list += Import-CSV ./config/modules.csv | % { $_.module }
+            # $function_list += Import-CSV ./config/modules.csv | % { 
+            #     if ($_.menu -eq 'y') {
+            #         gcm -module $_.module | Select -Exp Name
+            #     }
+            # }
 
 
             # $allfunctionfiles = Get-ChildItem -Path "$env:PSMENU_DIR\functions" -Filter "*.ps1" -File -Erroraction SilentlyContinue

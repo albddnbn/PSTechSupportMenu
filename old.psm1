@@ -45,10 +45,10 @@ function PSTechSupportMenu {
     ## $env:RESOURCES --> Directory of supportfiles folder, which contains config.json
     ## ./SupportFiles            Also contains other files used by the menu, including the PS2exe, 
     ##                           PSMenu, ImportExcel, and other Powershell modules.
-    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Setting " -nonewline
-    Write-Host "`$env:RESOURCES" -foregroundcolor green -NoNewline
-    Write-Host " environment variable to $((Get-Item "$PSSCRIPTROOT\resources").FullName)."
-    $env:RESOURCES = (Get-Item "$PSSCRIPTROOT\resources").FullName
+    # Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Setting " -nonewline
+    # Write-Host "`$env:RESOURCES" -foregroundcolor green -NoNewline
+    # Write-Host " environment variable to $((Get-Item "$PSSCRIPTROOT\resources").FullName)."
+    # $env:RESOURCES = (Get-Item "$PSSCRIPTROOT\resources").FullName
 
     # SupportFiles env var is necessary to actually 'grab' the config.json file
     $config_file = Get-Content -Path "$PSSCRIPTROOT\config\config.json" -ErrorAction SilentlyContinue

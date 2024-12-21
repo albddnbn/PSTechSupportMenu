@@ -66,11 +66,7 @@ function PSTechSupportMenu {
     Write-Host " environment variable to $((Get-Item .).FullName)."
     $env:PSMENU_DIR = (Get-Item $PSSCRIPTROOT).FullName
 
-    ## $env:MENU_UTILS --> Directory of utils folder, which contains scripts used by functions.
-    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Setting " -NoNewline
-    Write-Host "`$env:MENU_UTILS" -foregroundcolor green -NoNewline
-    Write-Host " environment variable to $((Get-Item $PSSCRIPTROOT\utilities).FullName)."
-    $env:MENU_UTILS = (Get-Item $PSSCRIPTROOT\utilities).FullName
+    ## $env:MENU_UTILS --> Directory of utils folder, which contains scripts used by functions.W
 
     ## $env:LOCAL_SCRIPTS --> Directory of scripts that are to be run locally (many of the functions in the menu use 
     ## Invoke-Command to execute these scripts on local computer, or remote targets).
@@ -79,14 +75,22 @@ function PSTechSupportMenu {
     Write-Host " environment variable to $((Get-Item $PSSCRIPTROOT\scripts).FullName)."
     $env:LOCAL_SCRIPTS = (Get-Item $PSSCRIPTROOT\scripts).FullName
 
-    ## Create the user-specific REPORTS directory
-    if (-not (Test-Path "$env:USERPROFILE\PSTechSupportMenu\reports")) {
-        New-Item -Path "$env:USERPROFILE\PSTechSupportMenu\reports" -Force -ItemType Directory
+    ## Set reports directory environment variable
+    $env:REPORTS_DIRECTORY = "$env:USERPROFILE\PSTechSupportMenu\reports"
+    if (-not (Test-Path "$env:REPORTS_DIRECTORY")) {
+        New-Item -Path "$env:REPORTS_DIRECTORY" -Force -ItemType Directory
     }
 
-    $env:REPORTS_DIRECTORY = "$env:USERPROFILE\PSTechSupportMenu\reports"
-
     ## Create user-specific inventory/canned_responses directories
+    $env:INVENTORY_DIRECTORY = "$env:USERPROFILE\PSTechSupportMenu\inventory"
+    if (-not (Test-Path "$env:INVENTORY_DIRECTORY")) {
+        New-Item -Path "$env:INVENTORY_DIRECTORY" -Force -ItemType Directory
+    }
+
+    $env:CANNED_RESPONSES_DIRECTORY = "$env:USERPROFILE\PSTechSupportMenu\canned_responses"
+    if (-not (Test-Path "$env:CANNED_RESPONSES_DIRECTORY")) {
+        New-Item -Path "$env:CANNED_RESPONSES_DIRECTORY" -Force -ItemType Directory
+    }
 
     $functions = @{}
     # Keys = Category Names
@@ -95,24 +99,13 @@ function PSTechSupportMenu {
         $functions[$category.Name] = $category.Value
     }
 
-    # $allfiles = get-childitem -path "$env:PSMENU_DIR\functions" -filter "*.ps1" -file
-
-    # ForEAch ($ps1file in $allfiles) {
-    #     Unblock-File -Path "$($ps1file.fullname)"
-    #     . "$($ps1file.fullname)"
-    #     Write-Host "Dot sourced " -nonewline
-    #     Write-Host "$($ps1file.basename)" -Foregroundcolor Green
-    # }
-
     ## Import modules / functions
     get-childitem modules | % { ipmo "$($_.fullname)" }
 
-    ## ./UTILS functions - Most importantly - Get-TargetComputers, Get-OutputFileString, general
-    # ForEach ($utility_function in (Get-ChildItem -Path "$env:MENU_UTILS" -Filter '*.ps1' -File)) {
-    #     Unblock-File "$($utility_function.fullname)"
-    #     . "$($utility_function.fullname)"
-    # }
+    $modules_csv = Import-CSV ./config/modules.csv
 
+    $modules_csv | % { install-module "$($_.module)" -confirm:$false }
+    $modules_csv | % { ipmo "$($_.module)" }
 
     ## JOB FUNCTIONS - if a function shouldn't give the option to be run as a background job - it should be specified in the config.json file.
     ## Add the function name to the 'notjobfunctions' array in the config.json file.
@@ -153,7 +146,7 @@ function PSTechSupportMenu {
             # $function_list = Get-ChildItem -Path "$env:PSMENU_DIR\functions" -Filter "*$search_term*.ps1" -File -ErrorAction SilentlyContinue | Select -Exp BaseName
 
             $function_list = Get-ChildItem ./Modules | % { gcm -module $_ } | Select -Exp Name
-
+            $function_list += Import-CSV ./config/modules.csv | % { $_.module }
 
 
             # $allfunctionfiles = Get-ChildItem -Path "$env:PSMENU_DIR\functions" -Filter "*.ps1" -File -Erroraction SilentlyContinue

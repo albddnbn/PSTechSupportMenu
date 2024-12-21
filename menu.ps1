@@ -150,7 +150,12 @@ function PSTechSupportMenu {
         if ($chosen_category -eq 'search') {
             Write-Host "Search will return any functions that contain the search term." -Foregroundcolor Yellow
             $search_term = Read-Host "Enter search term"
-            $function_list = Get-ChildItem -Path "$env:PSMENU_DIR\functions" -Filter "*$search_term*.ps1" -File -ErrorAction SilentlyContinue | Select -Exp BaseName 
+            # $function_list = Get-ChildItem -Path "$env:PSMENU_DIR\functions" -Filter "*$search_term*.ps1" -File -ErrorAction SilentlyContinue | Select -Exp BaseName
+
+            $function_list = Get-ChildItem ./Modules | % { gcm -module $_ } | Select -Exp Name
+
+
+
             # $allfunctionfiles = Get-ChildItem -Path "$env:PSMENU_DIR\functions" -Filter "*.ps1" -File -Erroraction SilentlyContinue
             # $filenames = $allfunctionfiles | select -exp basename
             # $function_list = $filenames | Where-Object { $_ -like "*$search_term*" }

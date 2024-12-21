@@ -1,3 +1,298 @@
+function Copy-CannedResponse {
+    <#
+    .SYNOPSIS
+        Pulls files from the ./canned_responses directory, and presents menu to user for selection of canned response.
+        User is then prompted for values for any variables in the selected response, and the response is copied to the clipboard.
+
+    .DESCRIPTION
+        Canned reponses can contain multiple variables indicated by (($variable$)).
+        This function cycles through a list of unique variables in the selected response, and prompts the user to enter values for each one.
+        The function inserts these values into the original response in place of the variable names, and copies the canned response to the user's clipboard.
+
+    .EXAMPLE
+        Copy-CannedResponse
+
+    .NOTES
+        One possible use for this function and it's companion function New-CannedResponse is to create canned responses for use in a ticket system, like OSTicket.
+        ---
+        Author: albddnbn (Alex B.)
+        Project Site: https://github.com/albddnbn/PSTerminalMenu
+    #>
+
+    
+    ## 1. Creates a list of all .txt and .html files in the canned_responses directory.
+    $CannedResponses = Get-ChildItem -Path "$env:PSMENU_DIR\canned_responses" -Include *.txt, *.html -File -Recurse -ErrorAction SilentlyContinue
+    if (-not $CannedResponses) {
+        Write-Host "No canned responses found in $env:PSMENU_DIR\canned_responses" -ForegroundColor Red
+        return
+    }
+
+    ## 2. If created by New-CannedResponse, the files will have names with words separated by dashes (-).
+    ##    - To offer a menu of options - the filenames are split at all occurences of - by replacing them with spaces.
+    $CannedResponseOptions = $CannedResponses | ForEach-Object { $_.BaseName -replace '-', ' ' } | Sort-Object
+
+    ## 3. Checks for PS-Menu module necessary to display interactive terminal menu.
+    ##    - if not found - checks for nuget / tries to install ps-menu
+    if (-not (Get-Module -Name PS-Menu -ListAvailable)) {
+        Write-Host "Installing PS-Menu module..." -ForegroundColor Yellow
+        if (-not (Get-PackageProvider -Name NuGet -ListAvailable)) {
+            Write-Host "Installing NuGet package provider..." -ForegroundColor Yellow
+            Install-PackageProvider -Name NuGet -MinimumVersion
+        }
+        Install-Module -Name PS-Menu -Force
+    }
+    Import-Module -Name PS-Menu -Force
+
+    # presents menu
+    $chosen_response = Menu $CannedResponseOptions
+
+    # reconstructs filenames, re-inserting dashes for spaces
+    $chosen_response = $chosen_response -replace ' ', '-'
+
+    ## 4. Get the content of the correct file - using original list of .html/.txt file objects
+    $chosen_response_file = $CannedResponses | Where-Object { $_.BaseName -eq $chosen_response }
+    $chosen_response_content = Get-Content "$($chosen_response_file.fullname)"
+
+    ## 5. Get the variables from the content - variables are enclosed in (($variable$))
+    ##    - for loop cycles through each unique variable, prompting the user for values.
+
+    $variables = $chosen_response_content | Select-String -Pattern '\(\(\$.*\$\)\)' -AllMatches | ForEach-Object { $_.Matches.Value } | Sort-Object -Unique
+    ForEach ($single_variable in $variables) {
+        $formatted_variable_name = $single_variable -split '=' | select -first 1
+        # $formatted_variable_name = $formatted_variable_name.replace('(($', '')
+
+        ForEach ($str_item in @('(($', '$))')) {
+            $formatted_variable_name = $formatted_variable_name.replace($str_item, '')
+        }
+
+
+        if ($single_variable -like "*=*") {
+            $variable_description = $single_variable -split '=' | select -last 1
+            $variable_description = $variable_description.replace('$))', '')
+        }
+        Write-Host "Description: " -nonewline -foregroundcolor yellow
+        Write-host "$variable_description"
+        $variable_value = Read-Host "Enter value for $formatted_variable_name"
+        Write-Host "Replacing $single_variable with $variable_value"
+        $chosen_response_content = $chosen_response_content.replace($single_Variable, $variable_value)
+    }
+    ## 6. Copy chosen response to clipboard, with new variable values inserted
+    $chosen_response_content | Set-Clipboard
+    Write-Host "Canned response copied to clipboard." -ForegroundColor Green
+}
+
+function Copy-SnippetToClipboard {
+    <#
+    .SYNOPSIS
+        Uses .txt files found in the ./snippets directory to present terminal menu to user.
+        User selects item to be copied to clipboard.
+
+    .DESCRIPTION
+        IT Helpdesk Contact Info.txt                  --> Campus help desk phone numbers.
+        OSTicket - Big Number Ordered List.txt        --> HTML/CSS for an ordered list that uses big numbers, horizontal to text.
+        PS1 1-Liner - Get Size of Folder.txt          --> Powershell one-liner to get size of all items in folder.
+        PS1 1-Liner - Last Boot Time.txt              --> Powershell one-liner to get last boot time of computer.
+        PS1 1-Liner - List All Apps.txt               --> Powershell one-liner to list all installed applications.
+        PS1 Code - List App Info From Reg.txt         --> Powershell code to list application info from registry.
+        PS1 Code - PS App Deployment Install Line.txt --> Powershell PSADT module silent installation line.
+
+    .EXAMPLE
+        Copy-SnippetToClipboard
+        
+    .NOTES
+        ---
+        Author: albddnbn (Alex B.)
+        Project Site: https://github.com/albddnbn/PSTerminalMenu
+    #>
+
+    ## 1. Checks for PS-Menu module necessary to display interactive terminal menu.
+    ##    - if not found - checks for nuget / tries to install ps-menu
+    if (-not (Get-Module -Name PS-Menu -ListAvailable)) {
+        Write-Host "Installing PS-Menu module..." -ForegroundColor Yellow
+        if (-not (Get-PackageProvider -Name NuGet -ListAvailable)) {
+            Write-Host "Installing NuGet package provider..." -ForegroundColor Yellow
+            Install-PackageProvider -Name NuGet -MinimumVersion -Force
+        }
+        Install-Module -Name PS-Menu -Force
+    }
+    Import-Module -Name PS-Menu -Force | Out-Null
+
+    ## 2. Creates a list of filenames from the ./snippets directory that end in .txt (resulting filenames in list will
+    ##    not include the .txt extension because of the BaseName property).
+    $snippet_options = Get-ChildItem -Path "$env:PSMENU_DIR\snippets" -Include *.txt -Recurse -ErrorAction SilentlyContinue | ForEach-Object { $_.BaseName }
+    $snippet_choice = menu $snippet_options
+
+    ## 3. Get the content of the chosen file and copy to clipboard
+    Get-Content -Path "$env:PSMENU_DIR\snippets\$snippet_choice.txt" | Set-Clipboard
+    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Content from $env:PSMENU_DIR\snippets\$snippet_choice.txt copied to clipboard."
+}
+
+function New-CannedResponse {
+    <#
+    .SYNOPSIS
+        Allows user to create a txt/html file, that has variables defined. 
+        When the Copy-CannedResponse function is used on this newly created file - it will prompt user for values for any variabels before copying the text to clipboard.
+
+    .DESCRIPTION
+        The user will have to enter variables of their own, defined in the text like this: (($variable_name$)).
+    
+    .PARAMETER FileType
+        Allows user to create either a TXT or HTML canned response file. With HTML files - the user will have to click the <> (code) button in OSTicket before pasting in the canned response HTML.
+        TXT files can be directly pasted without clicking the <> button.
+        Options include: txt, html
+
+    .NOTES
+        ---
+        Author: albddnbn (Alex B.)
+        Project Site: https://github.com/albddnbn/PSTerminalMenu
+    #>
+    
+    param(
+        [string]$FileType
+    )
+    Write-Host "Canned Response Instructions:"
+    Write-Host "-----------------------------"
+    Write-Host "Variables are defined like this: " -nonewline -foregroundcolor Yellow
+    Write-Host "((`$variable_name_here`$)), Get-CannedResponse will pick them up and prompt you for their values before copying the response content to your clipboard."
+    Write-Host "You should be able to use any html tags that work correctly in OSTicket, for ex: <b>text</b> for bold text."
+    Write-Host "Enter response content, a blank line will end the input session." -Foregroundcolor Green
+    # source: https://stackoverflow.com/questions/36650961/use-read-host-to-enter-multiple-lines / majkinetor
+    $response_content = while (1) { read-host | set r; if (!$r) { break }; $r }
+
+    if ($FileType.ToLower() -eq 'html') {
+
+        # create html:
+        $html_template = @"
+<html>`n
+<body>`n
+
+"@
+        ForEach ($single_line in $response_content) {
+            $html_string = "<p>$single_line</p>`n"
+            $html_template += $html_string
+        }
+        $html_template += @"
+
+</body>`n
+</html>
+"@
+    }
+    elseif ($FileType.ToLower() -eq 'txt') {
+        # $html_template variable is eventually output to file, so set it to equal just the text content if user chose txt
+        $html_template = $response_content
+    }
+    # write to file - extension will be .html even if its just text content to keep things simple
+    do {
+        $filename = Read-Host "Enter filename for canned response, no extension needed."
+        if ($filename -notlike "*.html") {
+            $filename = "$filename.html"
+        }
+    } until (-not (Test-Path "$env:PSMENU_DIR\canned_responses\$filename" -ErrorAction SilentlyContinue))
+    # Set-Content will keep formatting / newlines - Out-File will not as-is
+    Set-Content -Path "$env:PSMENU_DIR\canned_responses\$filename" -Value $html_template
+    
+    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] ::Canned response file created at canned_responses\$filename" -ForegroundColor Green
+
+    Invoke-Item "$env:PSMENU_DIR\canned_responses\$filename"
+
+}
+
+function New-PSADTFolder {
+    <#
+    .SYNOPSIS
+        Downloads specified (hopefully latest) version of Powershell App Deployment Toolkit and creates directory structure for application deployment.
+
+    .DESCRIPTION
+        Creates basic directory structure for PSADT deployment after downloading specified PSADT.zip folder from Github.
+
+    .NOTES
+        ---
+        Author: albddnbn (Alex B.)
+        Project Site: https://github.com/albddnbn/PSTerminalMenu
+    #>
+
+    $PSADT_DOWNLOAD_URL = "https://github.com/PSAppDeployToolkit/PSAppDeployToolkit/releases/download/3.10.2/PSAppDeployToolkit_3.10.2.zip"
+    ## Downloads the PSADT Toolkit and extracts it
+    ## Renames Toolkit folder to the given Application Name.
+
+    $ApplicationName = Read-Host "Enter the name of the application"
+    $DeploymentFolder_Destination = Read-Host "Enter destination for PSADT folder (press enter for default: $env:USERPROFILE\$APPLICATIONNAME)"
+    if ($DeploymentFolder_Destination -eq '') {
+        $DeploymentFolder_Destination = "$env:USERPROFILE\$APPLICATIONNAME"
+    }
+
+    ## create destination directory if not exist
+    if (-not (Test-Path $DeploymentFolder_Destination -PathType Container -Erroraction SilentlyContinue)) {
+        New-Item -Path $DeploymentFolder_Destination -ItemType Directory | out-null
+    }
+
+    ## Download the PSADT .zip folder (current latest):
+    Invoke-WebRequest "$PSADT_DOWNLOAD_URL" -Outfile "$env:USERPROFILE\PSADT.zip"
+
+    Expand-Archive -Path "$env:USERPROFILE\PSADT.zip" -DestinationPath "$env:USERPROFILE\PSADT"
+
+    ## Get the toolkit folder:
+    $toolkit_folder = Get-ChildItem -Path "$env:USERPROFILE\PSADT" -Filter "Toolkit" -Directory | Select -Exp FullName
+
+    Copy-Item -Path "$toolkit_folder\*" -Destination "$DeploymentFolder_Destination\"
+
+    ## Delete everything not needed:
+    REmove-Item -Path "$env:USERPROFILE\PSADT*" -Recurse -Force -ErrorAction SilentlyContinue
+
+    ## Rename the Deploy-Application.ps1 file
+    Rename-Item -Path "$DeploymentFolder_Destination\Deploy-Application.ps1" -NewName "Deploy-$ApplicationName.ps1"
+}
+
+function Open-Guide {
+    
+    <#
+    .SYNOPSIS
+        Opens PSTerminalMenu Wiki in browser.
+
+    .DESCRIPTION
+        The guide explains the menu's directory structure, functionality, and configuration.
+
+    .NOTES
+        ---
+        Author: albddnbn (Alex B.)
+        Project Site: https://github.com/albddnbn/PSTerminalMenu
+    #>
+
+    $HELP_URL = "https://github.com/albddnbn/PSTerminalMenu/wiki"
+    Write-Host "Attempting to open " -nonewline
+    Write-Host "$HELP_URL" -Foregroundcolor Yellow -NoNewline
+    Write-Host " in default browser."
+
+
+    try {
+        $chrome_exe = Get-ChildItem -Path "C:\Program Files\Google\Chrome\Application" -Filter "chrome.exe" -File -ErrorAction SilentlyContinue
+        Start-Process "$($chrome_exe.fullname)" -argumentlist "$HELP_URL"
+    }
+    catch {
+        Start-Process "msedge.exe" -argumentlist "$HELP_URL"
+    }
+    Read-Host "Press enter to continue."
+}
+
+function Open-RDP {
+    <#
+    .SYNOPSIS
+        Basic function to open RDP window with target computer and _admin username inserted.
+
+    .PARAMETER SingleTargetComputer
+        Single hostname of target computer - script will open RDP window with _admin username and target computer hostname already inserted.
+
+    .NOTES
+        Function is just meant to save a few seconds.
+    #>
+    param(
+        $SingleTargetComputer
+    )
+    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Opening RDP session to " -Nonewline
+    Write-Host "$SingleTargetComputer" -ForegroundColor Green
+    mstsc /v:$($singletargetcomputer):3389
+}
+
 
 
 function Scan-Inventory {
@@ -454,3 +749,5 @@ function Scan-Inventory {
     }
     Read-Host "`nPress [ENTER] to continue."
 }
+
+Export-ModuleMember -Function *-*

@@ -240,7 +240,7 @@ function Add-PrinterLogicPrinter {
     }
 
 
-    $results = Invoke-Command -ComputerName $single_computer -scriptblock $connect_to_printer_block -ArgumentList $PrinterName -ErrorVariable RemoteError 
+    $results = Invoke-Command -ComputerName $ComputerName -scriptblock $connect_to_printer_block -ArgumentList $PrinterName -ErrorVariable RemoteError 
 
     ## errored out invoke-commands:
     $errored_machines = $RemoteError.CategoryInfo.TargetName
@@ -476,16 +476,16 @@ function Install-Application {
             Mandatory = $true
         )]
         $ComputerName,
-        [ValidateScript({
-                if (Test-Path "$env:PSMENU_DIR\deploy\applications\$_" -ErrorAction SilentlyContinue) {
-                    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Found $($_) in $env:PSMENU_DIR\deploy\applications." -Foregroundcolor Green
-                    return $true
-                }
-                else {
-                    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: $($_) not found in $env:PSMENU_DIR\deploy\applications." -Foregroundcolor Red
-                    return $false
-                }
-            })]
+        # [ValidateScript({
+        #         if (Test-Path "$env:PSMENU_DIR\deploy\applications\$_" -ErrorAction SilentlyContinue) {
+        #             Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Found $($_) in $env:PSMENU_DIR\deploy\applications." -Foregroundcolor Green
+        #             return $true
+        #         }
+        #         else {
+        #             Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: $($_) not found in $env:PSMENU_DIR\deploy\applications." -Foregroundcolor Red
+        #             return $false
+        #         }
+        #     })]
         [string]$AppName,
         [string]$SkipOccupied
     )

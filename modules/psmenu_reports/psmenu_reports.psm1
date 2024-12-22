@@ -176,7 +176,7 @@ function TestConnectivity {
     ## 1. Set PingCount - # of pings sent to each target machine.
     ## 2. Handle Targetcomputer if not supplied through the pipeline.
     ## 1. Set PingCount - # of pings sent to each target machine.
-    $PING_COUNT = $PingCount
+    $PingCount = $PingCount
 
     # $list_of_online_computers = [system.collections.arraylist]::new()
     # $list_of_offline_computers = [system.collections.arraylist]::new()
@@ -184,7 +184,7 @@ function TestConnectivity {
 
     ## Ping target machines $PingCount times and log result to terminal.
     ForEach ($single_computer in $ComputerName) {
-        if (Test-Connection $single_computer -Count $PING_COUNT -Quiet) {
+        if (Test-Connection $single_computer -Count $PingCount -Quiet) {
             Write-Host "$single_computer is online." -ForegroundColor Green
             
             $online_results.Add($single_computer) | Out-Null
@@ -462,18 +462,24 @@ function Get-AssetInformation {
         }
         $computer_serial_num = get-ciminstance -class win32_bios | select -exp serialnumber
         # get monitor info and create a string from it (might be unnecessary, or a lengthy approach):
-        $monitors = Get-CimInstance WmiMonitorId -Namespace root\wmi -ComputerName $ComputerName | Select Active, ManufacturerName, UserFriendlyName, SerialNumberID, YearOfManufacture
-        $monitor_string = ""
-        $monitor_count = 0
-        $monitors | ForEach-Object {
-            $_.UserFriendlyName = [System.Text.Encoding]::ASCII.GetString($_.UserFriendlyName)
-            $_.SerialNumberID = [System.Text.Encoding]::ASCII.GetString($_.SerialNumberID -notmatch 0)
-            $_.ManufacturerName = [System.Text.Encoding]::ASCII.GetString($_.ManufacturerName)
-            $manufacturername = $($_.ManufacturerName).trim()
-            $monitor_string += "Maker: $manufacturername,Mod: $($_.UserFriendlyName),Ser: $($_.SerialNumberID),Yr: $($_.YearOfManufacture)"
-            $monitor_count++
+        $monitors = Get-CimInstance WmiMonitorId -Namespace root\wmi -ComputerName $ComputerName -ErrorAction SilentlyContinue
+        if ($monitors) {
+            $monitors = $monitors | Select Active, ManufacturerName, UserFriendlyName, SerialNumberID, YearOfManufacture
+            $monitor_string = ""
+            $monitor_count = 0
+            $monitors | ForEach-Object {
+                $_.UserFriendlyName = [System.Text.Encoding]::ASCII.GetString($_.UserFriendlyName)
+                $_.SerialNumberID = [System.Text.Encoding]::ASCII.GetString($_.SerialNumberID -notmatch 0)
+                $_.ManufacturerName = [System.Text.Encoding]::ASCII.GetString($_.ManufacturerName)
+                $manufacturername = $($_.ManufacturerName).trim()
+                $monitor_string += "Maker: $manufacturername,Mod: $($_.UserFriendlyName),Ser: $($_.SerialNumberID),Yr: $($_.YearOfManufacture)"
+                $monitor_count++
+            }
         }
-        
+        else {
+            $monitor_string = "No monitor information available."
+            $monitor_count = 0
+        }
         $obj = [PSCustomObject]@{
             model               = $computer_model
             biosversion         = $biosversion
@@ -1355,7 +1361,7 @@ function Get-InventoryDetails {
         $OutputFile = GetOutputFileString -TitleString $REPORT_DIRECTORY -Rootdirectory $env:USERPROFILE\PSTechSupportMenu -FolderTitle $REPORT_DIRECTORY -ReportOutput
     }
 
-    $results = Invoke-Command -ComputerName $single_computer -scriptblock {
+    $results = Invoke-Command -ComputerName $ComputerName -scriptblock {
         $pc_asset_tag = Get-Ciminstance -class win32_systemenclosure | select -exp smbiosassettag
         $pc_model = Get-Ciminstance -class win32_computersystem | select -exp model
         $pc_serial = Get-Ciminstance -class Win32_SystemEnclosure | select -exp serialnumber
@@ -1709,20 +1715,9 @@ function Scan-ForAppOrFilePath {
         $OutputFile = GetOutputFileString -TitleString $REPORT_DIRECTORY -Rootdirectory $env:USERPROFILE\PSTechSupportMenu -FolderTitle $REPORT_DIRECTORY -ReportOutput
     }
         
-    ## Collecting the results
-    $results = [System.Collections.ArrayList]::new()
-    ## 1/2. Check Targetcomputer for null/empty values and test ping.
-    ## 3. If machine was responsive, check for file/folder or application, add to $results.
-    ##    --> If searching for filepaths - creates object with some details / file attributes
-    ##    --> If searching for apps - creates object with some details / app attributes
-
-    ## 1.
-
-    ## 2. Test with ping first:
-    ## File/Folder search
     if (@('path', 'file', 'folder') -contains $SearchType.ToLower()) {
 
-        $results = Invoke-Command -ComputerName $single_computer -ScriptBlock {
+        $results = Invoke-Command -ComputerName $ComputerName -ScriptBlock {
             $obj = [PSCustomObject]@{
                 Name           = $env:COMPUTERNAME
                 Path           = $using:item
@@ -1758,7 +1753,7 @@ function Scan-ForAppOrFilePath {
     ## Application search
     elseif ($SearchType -eq 'App') {
 
-        $results = Invoke-Command -ComputerName $single_computer -Scriptblock {
+        $results = Invoke-Command -ComputerName $ComputerName -Scriptblock {
             # $app_matches = [System.Collections.ArrayList]::new()
             # Define the registry paths for uninstall information
             $registryPaths = @(
@@ -1799,18 +1794,18 @@ function Scan-ForAppOrFilePath {
                     }
                 }
             }
-            if ($null -eq $obj) {
-                $obj = [PSCustomObject]@{
-                    ComputerName    = $single_computer
-                    AppName         = "No matching apps found for $using:Item"
-                    AppVersion      = $null
-                    InstallDate     = $null
-                    InstallLocation = $null
-                    Publisher       = $null
-                    UninstallString = "No matching apps found"
-                }
-                $obj
-            }
+            # if ($null -eq $obj) {
+            #     $obj = [PSCustomObject]@{
+            #         ComputerName    = $single_computer
+            #         AppName         = "No matching apps found for $using:Item"
+            #         AppVersion      = $null
+            #         InstallDate     = $null
+            #         InstallLocation = $null
+            #         Publisher       = $null
+            #         UninstallString = "No matching apps found"
+            #     }
+            #     $obj
+            # }
         } -ErrorVariable RemoteError | Select * -ExcludeProperty RunspaceId, PSshowcomputername
 
         # $search_result
@@ -2103,7 +2098,7 @@ function Test-ConnectivityQuick {
     ## 1. Set PingCount - # of pings sent to each target machine.
     ## 2. Handle Targetcomputer if not supplied through the pipeline.
     ## 1. Set PingCount - # of pings sent to each target machine.
-    $PING_COUNT = $PingCount
+    $PingCount = $PingCount
     ## 2. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
     if ($null -eq $ComputerName) {
         Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected pipeline for targetcomputer." -Foregroundcolor Yellow
@@ -2166,16 +2161,16 @@ function Test-ConnectivityQuick {
     ForEach ($single_computer in $ComputerName) {
 
         if ($single_computer) {
-            $connection_result = Test-Connection $single_computer -count $PING_COUNT -ErrorAction SilentlyContinue
+            $connection_result = Test-Connection $single_computer -count $PingCount -ErrorAction SilentlyContinue
             # $connection_result
             # $ping_responses = $([string[]]($connection_result | where-object { $_.status -eq 'Success' })).count
-            $PING_RESPONSES = $connection_result.count
+            $ping_responses = $connection_result.count
             ## Create object
             $ping_response_obj = [pscustomobject]@{
                 ComputerName  = $single_computer
                 Status        = ""
                 PingResponses = $ping_responses
-                NumberPings   = $PING_COUNT
+                NumberPings   = $PingCount
             }
 
             if ($connection_result) {
@@ -2195,9 +2190,7 @@ function Test-ConnectivityQuick {
     
     }
     ## Open results in gridview since this is just supposed to be quick test for connectivity
-    $results | out-gridview -Title "Results: $PING_COUNT Pings"
-    Read-Host "`nPress [ENTER] to continue."
-
+    $results | out-gridview -Title "Results: $PingCount Pings"
 }
 
 Export-ModuleMember -Function *-*

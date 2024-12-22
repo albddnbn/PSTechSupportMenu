@@ -245,6 +245,10 @@ function Copy-RemoteFiles {
     .PARAMETER TargetPath
         Path to file(s)/folder(s) to be grabbed from remote machines. Ex: 'C:\users\abuddenb\Desktop\test.txt'
 
+    .PARAMETER SendPings
+        'y' = Ping test for connectivity before attempting main purpose of function.
+        Anything else - will not conduct the ping test.
+
     .EXAMPLE
         Copy-RemoteFiles -TargetPath "Users\Public\Desktop" -OutputPath "C:\Users\Public\Desktop" -TargetComputer "t-client-"
 
@@ -259,7 +263,8 @@ function Copy-RemoteFiles {
         )]
         $ComputerName,
         [string]$TargetPath,
-        [string]$OutputFolder
+        [string]$OutputFolder,
+        $SendPings
     )
 
     ## 1. Handle Targetcomputer input if it's not supplied through pipeline.
@@ -267,10 +272,10 @@ function Copy-RemoteFiles {
     ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
     $ComputerName = GetTargets -TargetComputer $ComputerName
 
-    ## If being run with terminal menu - use full output path
-    # if ($env:PSMENU_DIR) {
-    #     $OutputFolder = "$env:PSMENU_DIR\output\$thedate\$OutputFolder"
-    # }
+    ## Ping Test for Connectivity:
+    if ($SendPings -eq 'y') {
+        $ComputerName = TestConnectivity -ComputerName $ComputerName
+    }
 
     ## 2. Make sure the outputpath folder exists (remote files are copied here):
 
@@ -495,123 +500,46 @@ function Send-Reboots {
         [string]$RebootMessage,
         # the time before reboot in seconds, 3600 = 1hr, 300 = 5min
         [Parameter(Mandatory = $false)]
-        [string]$RebootTimeInSeconds = 300
+        [string]$RebootTimeInSeconds = 300,
+        $SendPings
     )
     ## 1. Confirm time before reboot w/user
     ## 2. Handling of TargetComputer input
     ## 3. typecast reboot time to double to be sure
     ## 4. container for offline computers
-    BEGIN {
-        ## 1. Confirmation
-        $reply = Read-Host "Sending reboot in $RebootTimeInSeconds seconds, or $([double]$RebootTimeInSeconds / 60) minutes, OK? (y/n)"
-        if ($reply.ToLower() -eq 'y') {
+    ## 1. Confirmation
+    $reply = Read-Host "Sending reboot in $RebootTimeInSeconds seconds, or $([double]$RebootTimeInSeconds / 60) minutes, OK? (y/n)"
+    if ($reply.ToLower() -eq 'y') {
     
-            ## 1. Handle TargetComputer input if not supplied through pipeline (will be $null in BEGIN if so)
-            if ($null -eq $ComputerName) {
-                Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Detected pipeline input for targetcomputer." -Foregroundcolor Yellow
-            }
-            else {
-                ## Assigns localhost value
-                if ($ComputerName -in @('', '127.0.0.1', 'localhost')) {
-                    $ComputerName = @('127.0.0.1')
-                }
-                ## If input is a file, gets content
-                elseif ($(Test-Path $ComputerName -erroraction SilentlyContinue) -and ($ComputerName.count -eq 1)) {
-                    $ComputerName = Get-Content $ComputerName
-                }
-                ## A. Separates any comma-separated strings into an array, otherwise just creates array
-                ## B. Then, cycles through the array to process each hostname/hostname substring using LDAP query
-                else {
-                    ## A.
-                    if ($ComputerName -like "*,*") {
-                        $ComputerName = $ComputerName -split ','
-                    }
-                    else {
-                        $ComputerName = @($ComputerName)
-                    }
-        
-                    ## B. LDAP query each TargetComputer item, create new list / sets back to Targetcomputer when done.
-                    $NewTargetComputer = [System.Collections.Arraylist]::new()
-                    foreach ($computer in $ComputerName) {
-                        ## CREDITS FOR The code this was adapted from: https://intunedrivemapping.azurewebsites.net/DriveMapping
-                        if ([string]::IsNullOrEmpty($env:USERDNSDOMAIN) -and [string]::IsNullOrEmpty($searchRoot)) {
-                            Write-Error "LDAP query `$env:USERDNSDOMAIN is not available!"
-                            Write-Warning "You can override your AD Domain in the `$overrideUserDnsDomain variable"
-                        }
-                        else {
-        
-                            # if no domain specified fallback to PowerShell environment variable
-                            if ([string]::IsNullOrEmpty($searchRoot)) {
-                                $searchRoot = $env:USERDNSDOMAIN
-                            }
-                        
-                            $matching_hostnames = (([adsisearcher]"(&(objectCategory=Computer)(name=$computer*))").findall()).properties
-                            $matching_hostnames = $matching_hostnames.name
-                            $NewTargetComputer += $matching_hostnames
-                        }
-                    }
-                    $ComputerName = $NewTargetComputer
-                }
-                $ComputerName = $ComputerName | Where-object { $_ -ne $null } | Select -Unique
-                # Safety catch
-                if ($null -eq $ComputerName) {
-                    return
-                }
-            }
+        $ComputerName = GetTargets -TargetComputer $ComputerName
+
+        ## Ping Test for Connectivity:
+        if ($SendPings -eq 'y') {
+            $ComputerName = TestConnectivity -ComputerName $ComputerName
         }
-        ## 3. typecast to double
-        $RebootTimeInSeconds = [double]$RebootTimeInSeconds
-
-        ## 4. container for offline computers
-        $offline_computers = [system.collections.arraylist]::new()
-
     }
+    ## 3. typecast to double
+    $RebootTimeInSeconds = [double]$RebootTimeInSeconds
+
+    ## 4. container for offline computers
+    $offline_computers = [system.collections.arraylist]::new()
+
     ## 1. Make sure no $null or empty values are submitted to the ping test or scriptblock execution.
     ## 2. Ping the single target computer one time as test before attempting remote session and/or reboot.
     ## 3. Send reboot either with or without message
     ## 4. If machine was offline - add it to list to output at end.
-    PROCESS {
-        ForEach ($single_computer in $ComputerName) {
+    if ($RebootMessage) {
+        Invoke-Command -ComputerName $ComputerName -ScriptBlock {
+            shutdown  /r /t $using:RebootTimeInSeconds /c "$using:RebootMessage"
+        }
+        $reboot_method = "Reboot w/popup msg"
+    }
+    else {
+        Restart-Computer $ComputerName
+        $reboot_method = "Reboot using Restart-Computer (no Force)" # 2-28-2024
+    }
 
-            ## 1. empty Targetcomputer values will cause errors to display during test-connection / rest of code
-            if ($single_computer) {
-                ## 2. Ping test
-                $ping_result = Test-Connection $single_computer -count 1 -Quiet
-                if ($ping_result) {
-                    if ($RebootMessage) {
-                        Invoke-Command -ComputerName $single_computer -ScriptBlock {
-                            shutdown  /r /t $using:RebootTimeInSeconds /c "$using:RebootMessage"
-                        }
-                        $reboot_method = "Reboot w/popup msg"
-                    }
-                    else {
-                        Restart-Computer $single_computer
-                        $reboot_method = "Reboot using Restart-Computer (no Force)" # 2-28-2024
-                    }
-                    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Reboot sent to $single_computer using $reboot_method." -ForegroundColor Green
-                }
-                else {
-                    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: $single_computer is offline." -Foregroundcolor Yellow
-                    $offline_computers.add($single_computer) | Out-Null
-                }
-            }
-        }
-    }
-    ## Output offline computers to terminal, and to file if requested
-    END {
-        if ($offline_computers) {
-            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Offline computers include:"
-            Write-Host ""
-            $offline_computers
-            Write-Host ""
-            $output_file = Read-Host "Output offline computers to txt file in ./output? [y/n]"
-            if ($output_file.tolower() -eq 'y') {
-                $offline_computers | Out-File -FilePath "./output/$thedate/Offline-NoReboot-$thedate.txt" -Force
-            }
-        }
-        Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Reboot(s) sent."
-        Read-Host "`nPress [ENTER] to continue."
-    }
+    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] :: Reboot(s) sent."
 }
 
 Function Set-ChromeClearDataOnExit {
